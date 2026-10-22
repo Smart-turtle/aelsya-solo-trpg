@@ -229,7 +229,13 @@ const Scene3D = {
   },
 
   bindInput() {
-    window.addEventListener('keydown', e => { this.keys[e.key.toLowerCase()] = true; });
+    window.addEventListener('keydown', e => {
+      this.keys[e.key.toLowerCase()] = true;
+      // 按 E 进入当前接近的地区
+      if (e.key.toLowerCase() === 'e' && this.nearRegion && Game.state.phase === 'worldMap') {
+        this.enterRegion(this.nearRegion);
+      }
+    });
     window.addEventListener('keyup', e => { this.keys[e.key.toLowerCase()] = false; });
   },
 
@@ -264,15 +270,34 @@ const Scene3D = {
 
   checkRegionProximity() {
     const pos = this.playerGroup.position;
+    let nearest = null;
+    let nearestDist = Infinity;
     Object.values(World.regions).forEach(region => {
       const dx = pos.x - region.position.x;
       const dz = pos.z - region.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist < 30 && Game.state.currentRegion !== region.id) {
-        Game.state.currentRegion = region.id;
-        UI.showRegionEnter(region);
-      }
+      if (dist < nearestDist) { nearestDist = dist; nearest = region; }
     });
+    if (nearest && nearestDist < 40) {
+      this.nearRegion = nearest.id;
+      Game.state.currentRegion = nearest.id;
+      UI.showRegionPrompt(nearest);
+    } else {
+      this.nearRegion = null;
+      UI.hideRegionPrompt();
+    }
+  },
+
+  // 进入地区，触发剧情对话
+  enterRegion(regionId) {
+    const region = World.regions[regionId];
+    if (!region) return;
+    this.nearRegion = null;
+    UI.hideRegionPrompt();
+    Game.state.currentRegion = regionId;
+    // 根据游戏进度决定进入哪个剧情节点
+    const nodeId = Story.getRegionEntryNode(regionId);
+    Story.showNode(nodeId);
   },
 
   animate() {

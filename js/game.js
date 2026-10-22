@@ -209,6 +209,10 @@ const Game = {
       p.mp = Math.min(p.maxMp, p.mp + item.mp);
       Utils.toast(`恢复了 ${item.mp} 点法力`);
     }
+    if (item.exp) {
+      this.gainExp(item.exp);
+      Utils.toast(`获得了 ${item.exp} 点经验`);
+    }
     if (item.cure) {
       p.statusEffects = p.statusEffects.filter(e => e.type !== item.cure);
       Utils.toast('解除了负面状态');
@@ -258,6 +262,12 @@ const Game = {
     }
     this.state.reputation[regionId] += amount;
   },
+
+  // 便捷方法
+  addGold(amount) { this.state.player.gold += amount; },
+  addExp(amount) { this.gainExp(amount); },
+  addReputation(regionId, amount) { this.changeReputation(regionId, amount); },
+  applyEffects(effects) { if (Story && Story.applyEffects) Story.applyEffects(effects); },
 
   // 设置标记
   setFlag(name, value = true) {

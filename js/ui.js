@@ -277,10 +277,12 @@ const UI = {
     this.dialogLayer.appendChild(panel);
 
     const textEl = document.getElementById('story-text');
-    Utils.typewriter(textEl, node.text, 25, () => {
+    const displayText = node._displayText != null ? node._displayText : (node.text || '');
+    const displayChoices = node._displayChoices || node.choices || [];
+    Utils.typewriter(textEl, displayText, 25, () => {
       const choicesDiv = document.createElement('div');
       choicesDiv.className = 'choices';
-      (node.choices || []).forEach((ch, idx) => {
+      displayChoices.forEach((ch, idx) => {
         if (ch.condition && !Story.checkCondition(ch.condition)) return;
         const btn = document.createElement('button');
         btn.className = 'btn choice-btn slide-up';
@@ -303,13 +305,33 @@ const UI = {
     Game.state.phase = 'worldMap';
     const hint = document.createElement('div');
     hint.style.cssText = 'position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);padding:10px 20px;border-radius:6px;font-size:14px;';
-    hint.textContent = 'WASD/方向键移动 · 接近地区触发剧情 · 点击右上角按钮打开功能';
+    hint.textContent = 'WASD/方向键移动 · 接近地区后按 E 或点击进入 · 右上角按钮打开功能';
     this.uiLayer.appendChild(hint);
   },
 
-  // 显示进入地区
-  showRegionEnter(region) {
-    Utils.toast(`进入${region.name}（${region.government}）`);
+  // 显示进入地区提示（可点击确认）
+  showRegionPrompt(region) {
+    let prompt = document.getElementById('region-prompt');
+    if (!prompt) {
+      prompt = document.createElement('div');
+      prompt.id = 'region-prompt';
+      this.uiLayer.appendChild(prompt);
+    }
+    const vis = this.regionVisual[region.id] || { icon: '🏰', color: '#c9a961' };
+    prompt.innerHTML = `
+      <div class="region-prompt-box" style="border-color:${vis.color};color:${vis.color};">
+        <span class="region-prompt-icon">${vis.icon}</span>
+        <span class="region-prompt-name">${region.name}</span>
+        <span class="region-prompt-hint">按 E 或点击进入</span>
+        <button class="btn region-prompt-btn" style="border-color:${vis.color};color:${vis.color};" onclick="Scene3D.enterRegion('${region.id}')">进入</button>
+      </div>
+    `;
+    prompt.style.display = 'flex';
+  },
+
+  hideRegionPrompt() {
+    const prompt = document.getElementById('region-prompt');
+    if (prompt) prompt.style.display = 'none';
   },
 
   // 背包

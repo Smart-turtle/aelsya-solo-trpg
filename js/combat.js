@@ -14,7 +14,25 @@ const Combat = {
     dark_mage: { name: '黑暗法师', hp: 28, atk: 10, def: 2, exp: 40, gold: 30, icon: '🧙' },
     orc: { name: '兽人战士', hp: 50, atk: 10, def: 4, exp: 50, gold: 35, icon: '👹' },
     vampire: { name: '吸血鬼', hp: 60, atk: 12, def: 6, exp: 80, gold: 60, icon: '🦇' },
-    dragon: { name: '幼龙', hp: 100, atk: 18, def: 8, exp: 200, gold: 150, icon: '🐉' }
+    dragon: { name: '幼龙', hp: 100, atk: 18, def: 8, exp: 200, gold: 150, icon: '🐉' },
+    // 各地区特有敌人
+    heretic: { name: '异端分子', hp: 35, atk: 8, def: 3, exp: 30, gold: 25, icon: '⛪' },
+    orc_raider: { name: '兽人劫掠者', hp: 45, atk: 10, def: 4, exp: 45, gold: 30, icon: '👹' },
+    giant_spider: { name: '巨型蜘蛛', hp: 40, atk: 11, def: 2, exp: 40, gold: 20, icon: '🕷️' },
+    poacher: { name: '盗猎者', hp: 32, atk: 9, def: 3, exp: 35, gold: 28, icon: '🏹' },
+    fire_elemental: { name: '火焰元素', hp: 55, atk: 14, def: 5, exp: 60, gold: 40, icon: '🔥' },
+    ore_thief: { name: '盗矿者', hp: 38, atk: 9, def: 4, exp: 38, gold: 45, icon: '⛏️' },
+    lava_beast: { name: '熔岩巨兽', hp: 70, atk: 15, def: 7, exp: 90, gold: 60, icon: '🌋' },
+    thug: { name: '暴徒', hp: 30, atk: 8, def: 3, exp: 28, gold: 22, icon: '👊' },
+    pirate: { name: '海盗', hp: 42, atk: 10, def: 4, exp: 42, gold: 50, icon: '🏴‍☠️' },
+    escapee: { name: '越狱逃犯', hp: 36, atk: 9, def: 3, exp: 36, gold: 18, icon: '🔗' },
+    ghoul: { name: '食尸鬼', hp: 50, atk: 12, def: 4, exp: 55, gold: 30, icon: '🧟' },
+    renegade: { name: '叛乱仆从', hp: 44, atk: 11, def: 5, exp: 48, gold: 35, icon: '🗡️' },
+    horse_thief: { name: '马贼', hp: 34, atk: 10, def: 3, exp: 34, gold: 30, icon: '🐎' },
+    wolf_pack: { name: '狼群', hp: 38, atk: 11, def: 2, exp: 32, gold: 10, icon: '🐺' },
+    raider: { name: '入侵者', hp: 48, atk: 11, def: 5, exp: 50, gold: 35, icon: '⚔️' },
+    // 最终BOSS
+    void_herald: { name: '虚无使者', hp: 300, atk: 25, def: 12, exp: 1000, gold: 500, icon: '👁️' }
   },
 
   // 开始战斗
@@ -55,7 +73,7 @@ const Combat = {
   playerSkill(skillId) {
     if (this.turn !== 'player') return;
     const p = Game.state.player;
-    const skill = p.skills.map(id => Classes[p.classId].skills.find(s => s.id === id)).find(s => s && s.id === skillId);
+    const skill = Classes[p.classId].skills.find(s => s.id === skillId);
     if (!skill) return;
     if (p.mp < skill.mp) {
       this.log.push('法力不足！');

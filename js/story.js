@@ -3,9 +3,22 @@ const Story = {
   nodes: {},
   currentNode: null,
 
+  // 获取地区入口节点（根据进度决定）
+  getRegionEntryNode(regionId) {
+    // 首次进入该地区：播放序章
+    if (!Game.getFlag(`visited_${regionId}`)) {
+      Game.setFlag(`visited_${regionId}`, true);
+      return `prologue_${regionId}_start`;
+    }
+    // 已访问过：进入地区枢纽（可选择活动）
+    return `hub_${regionId}`;
+  },
+
   // 启动序章
   startPrologue(regionId, classId) {
     Game.state.currentStoryPath = `prologue_${regionId}`;
+    // 标记该地区已访问，避免再次进入时重复播放序章
+    Game.setFlag(`visited_${regionId}`, true);
     this.showNode(`prologue_${regionId}_start`);
   },
 
@@ -18,8 +31,24 @@ const Story = {
     }
     Game.state.currentStoryNode = nodeId;
     Game.state.phase = 'story';
+    // 重置待定数据
+    this._pendingText = null;
+    this._pendingChoices = null;
+    this._pendingEffects = null;
     // 应用进入效果
     if (node.onEnter) node.onEnter();
+    // 应用待定文本
+    if (this._pendingText) {
+      node._displayText = this._pendingText;
+    } else {
+      node._displayText = node.text || '';
+    }
+    // 应用待定选项
+    if (this._pendingChoices) {
+      node._displayChoices = this._pendingChoices;
+    } else {
+      node._displayChoices = node.choices || [];
+    }
     UI.renderStory(node);
   },
 
@@ -44,6 +73,12 @@ const Story = {
     if (effects.affinity) {
       Object.entries(effects.affinity).forEach(([npc, v]) => Game.changeAffinity(npc, v));
     }
+    // 支持多个 affinity 对象（affinity2, affinity3...）
+    Object.keys(effects).forEach(k => {
+      if (k.startsWith('affinity') && k !== 'affinity') {
+        Object.entries(effects[k]).forEach(([npc, v]) => Game.changeAffinity(npc, v));
+      }
+    });
     if (effects.reputation) {
       Object.entries(effects.reputation).forEach(([r, v]) => Game.changeReputation(r, v));
     }
@@ -88,6 +123,9 @@ const Story = {
     if (cond.region) {
       if (Game.state.currentRegion !== cond.region) return false;
     }
+    if (cond.gold !== undefined) {
+      if (Game.state.player.gold < cond.gold) return false;
+    }
     return true;
   },
 
@@ -96,6 +134,13 @@ const Story = {
     if (choice.condition && !this.checkCondition(choice.condition)) {
       Utils.toast('条件不满足');
       return;
+    }
+    // onChoice 回调
+    if (choice.onChoice) choice.onChoice();
+    // 应用节点级待定效果（训练/社交/探索）
+    if (this._pendingEffects) {
+      this.applyEffects(this._pendingEffects);
+      this._pendingEffects = null;
     }
     // 应用效果
     this.applyEffects(choice.effects);
@@ -110,13 +155,39 @@ const Story = {
           if (choice.fail) this.applyEffects(choice.fail);
           if (choice.failNode) { this.showNode(choice.failNode); return; }
         }
-        if (choice.next) this.showNode(choice.next);
+        this._navigate(choice);
       });
       return;
     }
     // 战斗
     if (choice.combat) {
       Combat.start(choice.combat);
+      return;
+    }
+    this._navigate(choice);
+  },
+
+  // 根据选项决定跳转目标
+  _navigate(choice) {
+    // 动态跳转到主线章节
+    if (choice.dynamicChapter && this._pendingChapter) {
+      this.showNode(this._pendingChapter);
+      return;
+    }
+    // 动态返回当前地区的遭遇节点
+    if (choice.dynamic) {
+      this.showNode(`proc_encounter_${Game.state.currentRegion}`);
+      return;
+    }
+    // 动态返回当前地区枢纽
+    if (choice.dynamicHub) {
+      this.showNode(`hub_${Game.state.currentRegion}`);
+      return;
+    }
+    // 返回世界地图
+    if (choice.toWorldMap) {
+      Game.state.phase = 'worldMap';
+      UI.renderWorldMap();
       return;
     }
     // 跳到下一节点
@@ -237,7 +308,7 @@ Story.initNodes = function() {
     speaker: '',
     text: '艾尔瑟亚大陆广袤无垠，六国各有故事。你可以在世界地图上自由探索，前往不同的地区触发独特的剧情。与 NPC 建立关系，提升好感，甚至可以与心爱之人结婚。你的每一个选择都将影响最终的结局。',
     choices: [
-      { text: '打开世界地图', next: null, effects: {} },
+      { text: '打开世界地图', next: null, toWorldMap: true },
       { text: '查看背包', next: 'open_inventory' }
     ]
   };
@@ -245,7 +316,7 @@ Story.initNodes = function() {
   this.nodes['open_inventory'] = {
     speaker: '',
     text: '你打开了背包。',
-    choices: [{ text: '打开背包', next: null, onChoose: () => UI.openInventory() }]
+    choices: [{ text: '打开背包', next: null, dynamicHub: true, onChoose: () => UI.openInventory() }]
   };
 
   // ========== 圣光帝国剧情 ==========
@@ -523,6 +594,241 @@ Story.initNodes = function() {
     choices: [{ text: '继续', next: 'career_choice', effects: { exp: 15, time: 3 } }]
   };
 
+  // ========== 地区深度剧情支线 ==========
+
+  // --- 圣光帝国：异端审判与教廷阴谋 ---
+  this.nodes['he_heresy_1'] = {
+    speaker: '',
+    text: '你在圣城的小巷中发现一名被审判庭追捕的少女。她自称是学者，只因研究了被教廷视为异端的源力文献而遭通缉。她恳求你的帮助。',
+    choices: [
+      { text: '帮助她躲避追捕（敏捷检定）', check: { attr: 'dex', dc: 13 }, success: { affinity: { elena: -5 }, flag: { he_helped_heretic: true }, exp: 30 }, fail: { hp: -20 }, next: 'he_heresy_2', effects: { time: 1 } },
+      { text: '将她交给审判庭', next: 'he_heresy_report', effects: { reputation: { holy_empire: 10 }, time: 1 } },
+      { text: '假装没看见', next: 'career_choice', effects: { time: 1 } }
+    ]
+  };
+  this.nodes['he_heresy_2'] = {
+    speaker: '少女',
+    text: '「谢谢你……我叫塞拉。我发现教廷高层在隐瞒关于源力崩裂的真相。如果你愿意，可以去城外的废弃修道院寻找证据。」',
+    choices: [
+      { text: '前往废弃修道院', next: 'he_monastery', effects: { time: 2 } },
+      { text: '先送她离开', next: 'career_choice', effects: { affinity: { elena: 5 }, exp: 20, time: 2 } }
+    ]
+  };
+  this.nodes['he_heresy_report'] = {
+    speaker: '审判官',
+    text: '「做得好，信徒。教廷会记住你的忠诚。」审判官带走了少女，她回头看了你一眼，眼中满是绝望。',
+    choices: [{ text: '继续', next: 'career_choice', effects: { gold: 30, time: 1 } }]
+  };
+  this.nodes['he_monastery'] = {
+    speaker: '',
+    text: '废弃的修道院阴森恐怖。你在地下密室发现了一份古老的文献，上面记载着源力崩裂的真相——旧神并非自然陨落，而是被某种力量吞噬。',
+    choices: [
+      { text: '带走文献', next: 'career_choice', effects: { addItem: ['ancient_scroll'], exp: 40, flag: { he_truth: true }, time: 2 } },
+      { text: '销毁文献，避免事端', next: 'career_choice', effects: { reputation: { holy_empire: 5 }, time: 1 } }
+    ]
+  };
+
+  // --- 翡翠森林：世界树危机 ---
+  this.nodes['ec_worldtree_1'] = {
+    speaker: '凯鲁姆长老',
+    text: '「世界树的根脉正在被黑暗侵蚀……我们需要深入根脉之穴，净化污染源。但那里危险重重。」',
+    choices: [
+      { text: '「我愿意前往根脉之穴。」', next: 'ec_root_cave', effects: { time: 2 } },
+      { text: '「还有其他办法吗？」', next: 'ec_alt_1', effects: { time: 1 } }
+    ]
+  };
+  this.nodes['ec_root_cave'] = {
+    speaker: '',
+    text: '根脉之穴中，黑暗源力凝成的怪物正在啃食世界树的根系。你必须击败它们，净化污染源。',
+    choices: [
+      { text: '战斗！', combat: ['dark_mage', 'giant_spider'], next: 'ec_root_victory' },
+      { text: '用自然之力净化（感知检定）', check: { attr: 'wis', dc: 15 }, success: { exp: 80, affinity: { elder_caelum: 20 } }, fail: { hp: -25 }, next: 'ec_root_after', effects: { time: 2 } }
+    ]
+  };
+  this.nodes['ec_root_victory'] = {
+    speaker: '',
+    text: '你击败了黑暗生物，世界树的根系重新焕发生机。长老对你感激不尽。',
+    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { elder_caelum: 25 }, exp: 80, gold: 60, addItem: ['spirit_charm'], time: 1 } }]
+  };
+  this.nodes['ec_root_after'] = {
+    speaker: '',
+    text: '你暂时缓解了世界树的危机，但黑暗的源头仍未根除。',
+    choices: [{ text: '继续', next: 'career_choice', effects: { exp: 40, time: 1 } }]
+  };
+  this.nodes['ec_alt_1'] = {
+    speaker: '凯鲁姆长老',
+    text: '「除非能找到传说中的月光花，它的花粉能净化黑暗。但月光花只在满月之夜的月光湖畔绽放。」',
+    choices: [{ text: '「我去寻找月光花。」', next: 'ec_moonflower', effects: { time: 3 } }]
+  };
+  this.nodes['ec_moonflower'] = {
+    speaker: '',
+    text: '你在月光湖畔等待了整夜，终于在黎明前采到了月光花。它散发着柔和的银色光芒。',
+    choices: [{ text: '将月光花交给长老', next: 'career_choice', effects: { affinity: { elder_caelum: 20 }, affinity2: { lyralei: 10 }, exp: 50, time: 1 } }]
+  };
+
+  // --- 熔岩邦联：熔炉节与火山异变 ---
+  this.nodes['lc_festival_1'] = {
+    speaker: '格鲁尼尔',
+    text: '「熔炉节到了！今年的重头戏是锻造大赛，冠军能获得传说中的「熔炉之心」碎片。小子，要不要参加？」',
+    choices: [
+      { text: '参加锻造大赛（智力检定）', check: { attr: 'int', dc: 13 }, success: { exp: 60, gold: 100, addItem: ['rune_fragment'] }, fail: { exp: 20 }, next: 'career_choice', effects: { time: 4 } },
+      { text: '帮格鲁尼尔准备熔炉节', next: 'lc_prepare', effects: { time: 3 } }
+    ]
+  };
+  this.nodes['lc_prepare'] = {
+    speaker: '',
+    text: '你帮助格鲁尼尔筹备熔炉节，忙前忙后。在这个过程中，你学到了不少锻造知识，也和矮人们打成了一片。',
+    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { grunir: 15 }, exp: 30, gold: 40, time: 3 } }]
+  };
+  this.nodes['lc_volcano_1'] = {
+    speaker: '',
+    text: '火山活动突然加剧！熔岩祭司预言「熔炉之心」正在苏醒，如果不加以压制，整座城邦都将被火山吞没。',
+    choices: [
+      { text: '深入火山口压制熔炉之心', next: 'lc_volcano_core', effects: { time: 3 } },
+      { text: '组织居民疏散', next: 'career_choice', effects: { reputation: { lava_confederation: 15 }, exp: 40, time: 2 } }
+    ]
+  };
+  this.nodes['lc_volcano_core'] = {
+    speaker: '',
+    text: '火山口深处，一个由熔岩构成的元素生物正在狂暴。它就是「熔炉之心」的化身。',
+    choices: [
+      { text: '战斗！', combat: ['fire_elemental', 'lava_beast'], next: 'lc_volcano_win' },
+      { text: '以锻造之理安抚它（智力检定）', check: { attr: 'int', dc: 16 }, success: { exp: 100, addItem: ['rune_fragment'] }, fail: { hp: -30 }, next: 'career_choice', effects: { time: 2 } }
+    ]
+  };
+  this.nodes['lc_volcano_win'] = {
+    speaker: '',
+    text: '你击败了熔炉之心的化身，火山恢复了平静。邦联将你视为英雄。',
+    choices: [{ text: '继续', next: 'career_choice', effects: { reputation: { lava_confederation: 25 }, exp: 100, gold: 150, addItem: ['rune_fragment'], time: 1 } }]
+  };
+
+  // --- 自由城邦：商人议会选举与阴谋 ---
+  this.nodes['fc_election_1'] = {
+    speaker: '',
+    text: '商人议会的选举即将开始，三大派系明争暗斗。现任执政官马洛雇佣你调查对手的黑料。',
+    choices: [
+      { text: '接受调查任务', next: 'fc_investigate', effects: { gold: 50, time: 2 } },
+      { text: '拒绝，保持中立', next: 'career_choice', effects: { time: 1 } }
+    ]
+  };
+  this.nodes['fc_investigate'] = {
+    speaker: '',
+    text: '你潜入了对手的仓库，发现了他们与暗影之地走私者勾结的证据。但你也被发现了！',
+    choices: [
+      { text: '战斗突围', combat: ['thug', 'escapee'], next: 'fc_investigate_win' },
+      { text: '潜行逃脱（敏捷检定）', check: { attr: 'dex', dc: 14 }, success: { exp: 40 }, fail: { hp: -15 }, next: 'fc_investigate_win', effects: { time: 1 } }
+    ]
+  };
+  this.nodes['fc_investigate_win'] = {
+    speaker: '马洛',
+    text: '「干得漂亮！有了这些证据，我连任无忧。这是你的报酬。」',
+    choices: [{ text: '继续', next: 'career_choice', effects: { gold: 100, reputation: { free_cities: 10 }, exp: 50, time: 1 } }]
+  };
+  this.nodes['fc_academy_tournament'] = {
+    speaker: '索林大法师',
+    text: '「学院举办的源力比武大会即将开始，冠军能获得进入禁书区阅读的资格。你有兴趣吗？」',
+    choices: [
+      { text: '参加比武（智力检定）', check: { attr: 'int', dc: 13 }, success: { exp: 70, addItem: ['ancient_scroll'] }, fail: { hp: -15 }, next: 'career_choice', effects: { time: 3 } },
+      { text: '在图书馆自修', next: 'career_choice', effects: { exp: 30, time: 3 } }
+    ]
+  };
+
+  // --- 暗影之地：吸血鬼氏族与暗影议会 ---
+  this.nodes['sl_vampire_war_1'] = {
+    speaker: '德雷文领主',
+    text: '「暗影议会要剥夺我氏族的领地。如果你帮我对付议会的人，我可以分享议会的秘密。」',
+    choices: [
+      { text: '帮助德雷文', next: 'sl_vampire_war_2', effects: { affinity: { lord_draven: 20 }, time: 2 } },
+      { text: '向暗影议会告密', next: 'sl_betray_draven', effects: { affinity: { mistress_nox: 15 }, affinity2: { lord_draven: -30 }, time: 1 } },
+      { text: '拒绝参与', next: 'career_choice', effects: { time: 1 } }
+    ]
+  };
+  this.nodes['sl_vampire_war_2'] = {
+    speaker: '',
+    text: '你和德雷文的氏族战士伏击了议会的运输队。战斗一触即发！',
+    choices: [
+      { text: '战斗！', combat: ['renegade', 'ghoul'], next: 'sl_vampire_win' }
+    ]
+  };
+  this.nodes['sl_vampire_win'] = {
+    speaker: '德雷文领主',
+    text: '「干得好。这是暗影议会的密信，你拿去。记住，在暗影之地，没有永远的朋友。」',
+    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { lord_draven: 25 }, addItem: ['royal_letter'], exp: 60, gold: 80, time: 1 } }]
+  };
+  this.nodes['sl_betray_draven'] = {
+    speaker: '诺克斯女士',
+    text: '「明智的选择。德雷文那家伙早就该被肃清了。这是你的奖赏。」',
+    choices: [{ text: '继续', next: 'career_choice', effects: { gold: 120, reputation: { shadow_lands: 10 }, exp: 50, time: 1 } }]
+  };
+  this.nodes['sl_necromancer_1'] = {
+    speaker: '',
+    text: '一位亡灵法师找到你，声称能让你与亡者对话。他需要你帮忙收集「灵魂之尘」。',
+    choices: [
+      { text: '帮忙收集（探索墓穴）', next: 'sl_grave', effects: { time: 3 } },
+      { text: '拒绝这种邪术', next: 'career_choice', effects: { time: 1 } }
+    ]
+  };
+  this.nodes['sl_grave'] = {
+    speaker: '',
+    text: '古老的墓穴中，亡灵游荡。你击败了它们，收集到了灵魂之尘。',
+    choices: [
+      { text: '战斗！', combat: ['skeleton', 'ghoul'], next: 'sl_grave_win' }
+    ]
+  };
+  this.nodes['sl_grave_win'] = {
+    speaker: '',
+    text: '你带着灵魂之尘返回，亡灵法师十分满意。',
+    choices: [{ text: '继续', next: 'career_choice', effects: { exp: 50, addItem: ['skull_shard'], gold: 50, time: 1 } }]
+  };
+
+  // --- 草原部落：忽里勒台大会与部落纷争 ---
+  this.nodes['st_khuraldai_1'] = {
+    speaker: '巴图尔大可汗',
+    text: '「忽里勒台大会即将召开，各部落首领齐聚。苍狼部落的首领想夺权，你帮我稳住他们，我必有重谢。」',
+    choices: [
+      { text: '帮助大可汗', next: 'st_khuraldai_2', effects: { affinity: { khan_batur: 15 }, time: 2 } },
+      { text: '暗中支持苍狼部落', next: 'st_wolf_support', effects: { time: 1 } }
+    ]
+  };
+  this.nodes['st_khuraldai_2'] = {
+    speaker: '',
+    text: '大会上，苍狼部落的首领公然挑战大可汗的权威，双方剑拔弩张。',
+    choices: [
+      { text: '为大可汗辩护（魅力检定）', check: { attr: 'cha', dc: 14 }, success: { reputation: { steppe_tribes: 15 } }, fail: { reputation: { steppe_tribes: -5 } }, next: 'st_khuraldai_end', effects: { time: 1 } },
+      { text: '以武力压制反对者（力量检定）', check: { attr: 'str', dc: 13 }, success: { reputation: { steppe_tribes: 10 } }, fail: { hp: -10 }, next: 'st_khuraldai_end', effects: { time: 1 } }
+    ]
+  };
+  this.nodes['st_khuraldai_end'] = {
+    speaker: '巴图尔大可汗',
+    text: '「你帮我稳住了联盟。草原会记住你的功劳。」',
+    choices: [{ text: '继续', next: 'career_choice', effects: { gold: 80, exp: 50, addItem: ['totem_staff'], time: 1 } }]
+  };
+  this.nodes['st_wolf_support'] = {
+    speaker: '苍狼首领',
+    text: '「你愿意支持我？很好。事成之后，草原的一半归你。」',
+    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { khatun_aigul: -10 }, gold: 100, exp: 40, time: 1 } }]
+  };
+  this.nodes['st_hunt_1'] = {
+    speaker: '艾古尔可敦',
+    text: '「草原上出现了一头巨大的白狼，它威胁着牧民的安全。和我一起去狩猎吧！」',
+    choices: [
+      { text: '「当然！」', next: 'st_hunt_2', effects: { affinity: { khatun_aigul: 10 }, time: 2 } }
+    ]
+  };
+  this.nodes['st_hunt_2'] = {
+    speaker: '',
+    text: '你和艾古尔追踪到了白狼的踪迹。这头巨狼比普通狼大上三倍，眼神中透着智慧。',
+    choices: [
+      { text: '射杀白狼', combat: ['wolf_pack'], next: 'st_hunt_win' },
+      { text: '尝试驯服它（感知检定）', check: { attr: 'wis', dc: 15 }, success: { affinity: { khatun_aigul: 20 }, exp: 60, addItem: ['spirit_charm'] }, fail: { hp: -20 }, next: 'career_choice', effects: { time: 1 } }
+    ]
+  };
+  this.nodes['st_hunt_win'] = {
+    speaker: '艾古尔可敦',
+    text: '「好箭法！这头白狼的毛皮能做一件上好的斗篷。」',
+    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { khatun_aigul: 15 }, exp: 50, gold: 60, time: 1 } }]
+  };
+
   // ========== 结婚事件 ==========
   this.nodes['marriage_proposal'] = {
     speaker: '',
@@ -550,6 +856,575 @@ Story.initNodes = function() {
     text: '',
     onEnter: () => { UI.showEnding(); },
     choices: []
+  };
+
+  // ========== 地区枢纽节点 ==========
+  // 每个地区的枢纽提供：主线/探查/训练/社交/探索/委托/商店/旅店/锻造/赌博/NPC/离开
+  const hubRegions = Object.keys(World.regions);
+  hubRegions.forEach(regionId => {
+    const region = World.regions[regionId];
+    this.nodes[`hub_${regionId}`] = {
+      speaker: region.name,
+      text: `你来到了${region.name}。这里是${region.government}，空气中弥漫着独特的气息。你可以在此停留，探索这片土地的秘密。`,
+      choices: [
+        { text: '⚔️ 主线任务', next: 'main_quest' },
+        { text: '🔍 探查周围', next: `proc_encounter_${regionId}` },
+        { text: '💪 训练能力', next: `proc_train_${regionId}` },
+        { text: '🗣️ 社交活动', next: `proc_social_${regionId}` },
+        { text: '🌿 探索区域', next: `proc_explore_${regionId}` },
+        { text: '📜 接受委托', next: `proc_job_${regionId}` },
+        { text: '🤝 拜访NPC', next: `proc_npc_${regionId}` },
+        { text: '📖 地区支线', next: `side_quest_${regionId}` },
+        { text: '🏨 旅店休息', next: 'proc_inn' },
+        { text: '⚒️ 锻造装备', next: 'proc_craft' },
+        { text: '🎲 赌场博弈', next: 'proc_gamble' },
+        { text: '🏪 查看商店', next: 'shop' },
+        { text: '🚶 离开地区', next: 'world_map' }
+      ]
+    };
+
+    // 随机遭遇节点
+    this.nodes[`proc_encounter_${regionId}`] = {
+      speaker: '',
+      onEnter: () => {
+        const enc = Procedural.generateEncounter(regionId);
+        const career = Game.state.careerPath || 'adventurer';
+        const timeOfDay = Utils.timeOfDay(Game.state.time.hour);
+        this._pendingText = `${Procedural.timeFlavor[timeOfDay] || ''} ${Procedural.careerFlavor[career] || ''}\n\n${enc.text}`;
+        this._pendingChoices = Procedural.generateChoices(enc, regionId);
+        this._pendingRegion = regionId;
+        this._pendingType = enc.type;
+      },
+      text: '',
+      choices: []
+    };
+
+    // 训练节点
+    this.nodes[`proc_train_${regionId}`] = {
+      speaker: '',
+      onEnter: () => {
+        const t = Procedural.generateTraining();
+        this._pendingText = t.text;
+        this._pendingEffects = t.effects;
+      },
+      text: '',
+      choices: [
+        { text: '返回', next: `hub_${regionId}` }
+      ],
+      onChoice: () => {
+        if (this._pendingEffects) Game.applyEffects(this._pendingEffects);
+      }
+    };
+
+    // 社交节点
+    this.nodes[`proc_social_${regionId}`] = {
+      speaker: '',
+      onEnter: () => {
+        const e = Procedural.generateSocialEvent(regionId);
+        this._pendingText = e.text;
+        this._pendingEffects = e.effects;
+      },
+      text: '',
+      choices: [
+        { text: '返回', next: `hub_${regionId}` }
+      ],
+      onChoice: () => {
+        if (this._pendingEffects) Game.applyEffects(this._pendingEffects);
+      }
+    };
+
+    // 探索节点
+    this.nodes[`proc_explore_${regionId}`] = {
+      speaker: '',
+      onEnter: () => {
+        const e = Procedural.generateExploration(regionId);
+        this._pendingText = e.text;
+        this._pendingEffects = e.effects;
+      },
+      text: '',
+      choices: [
+        { text: '返回', next: `hub_${regionId}` }
+      ],
+      onChoice: () => {
+        if (this._pendingEffects) Game.applyEffects(this._pendingEffects);
+      }
+    };
+
+    // NPC 对话节点
+    this.nodes[`proc_npc_${regionId}`] = {
+      speaker: '',
+      onEnter: () => {
+        const npcs = NPCs.getByRegion(regionId);
+        if (npcs.length === 0) {
+          this._pendingText = '这里没有你认识的人。';
+          this._pendingChoices = [{ text: '返回', next: `hub_${regionId}` }];
+          return;
+        }
+        const list = npcs.map(n => {
+          const aff = Game.getAffinity(n.id);
+          const stage = Utils.relationStage(aff);
+          return { text: `${n.icon} ${n.name}（${n.role}）- ${stage}`, next: `npc_talk_${n.id}` };
+        });
+        list.push({ text: '返回', next: `hub_${regionId}` });
+        this._pendingText = `你在${region.name}可以拜访以下人物：`;
+        this._pendingChoices = list;
+      },
+      text: '',
+      choices: []
+    };
+
+    // 地区支线任务节点
+    const sideQuests = {
+      holy_empire: [
+        { text: '异端审判：被追捕的少女', next: 'he_heresy_1' },
+        { text: '深入修道院', next: 'he_monastery', condition: { flag: { he_helped_heretic: true } } }
+      ],
+      emerald_council: [
+        { text: '世界树危机', next: 'ec_worldtree_1' },
+        { text: '寻找月光花', next: 'ec_alt_1' }
+      ],
+      lava_confederation: [
+        { text: '熔炉节锻造大赛', next: 'lc_festival_1' },
+        { text: '火山异变', next: 'lc_volcano_1' }
+      ],
+      free_cities: [
+        { text: '商人议会选举', next: 'fc_election_1' },
+        { text: '学院比武大会', next: 'fc_academy_tournament' }
+      ],
+      shadow_lands: [
+        { text: '吸血鬼氏族战争', next: 'sl_vampire_war_1' },
+        { text: '亡灵法师的委托', next: 'sl_necromancer_1' }
+      ],
+      steppe_tribes: [
+        { text: '忽里勒台大会', next: 'st_khuraldai_1' },
+        { text: '白狼狩猎', next: 'st_hunt_1' }
+      ]
+    };
+    this.nodes[`side_quest_${regionId}`] = {
+      speaker: '',
+      text: `你在${region.name}可以接取以下支线任务：`,
+      choices: (sideQuests[regionId] || []).concat([{ text: '返回', next: `hub_${regionId}` }])
+    };
+
+    // 委托节点
+    this.nodes[`proc_job_${regionId}`] = {
+      speaker: '',
+      onEnter: () => {
+        const enc = Procedural.generateEncounter(regionId, 'job');
+        this._pendingText = enc.text;
+        this._pendingChoices = Procedural.generateChoices(enc, regionId);
+      },
+      text: '',
+      choices: []
+    };
+  });
+
+  // ========== NPC 对话节点（动态生成） ==========
+  Object.values(NPCs).forEach(npc => {
+    this.nodes[`npc_talk_${npc.id}`] = {
+      speaker: npc.name,
+      onEnter: () => {
+        const aff = Game.getAffinity(npc.id);
+        const stage = Utils.relationStage(aff);
+        const dialogs = npc.dialog[stage] || npc.dialog.stranger || ['……'];
+        const line = Utils.pick(dialogs);
+        this._pendingText = line;
+      },
+      text: '',
+      choices: [
+        { text: '闲聊（+好感）', next: `npc_talk_${npc.id}`, effects: { affinity: { [npc.id]: 3 }, time: 1 } },
+        { text: '赠送礼物', next: `npc_gift_${npc.id}` },
+        { text: '询问情报', next: `npc_info_${npc.id}`, effects: { time: 1 } },
+        { text: '离开', next: null, dynamicHub: true }
+      ]
+    };
+
+    // 赠送礼物节点
+    this.nodes[`npc_gift_${npc.id}`] = {
+      speaker: npc.name,
+      onEnter: () => {
+        const gifts = npc.gifts || [];
+        const ownedGift = gifts.find(g => Game.hasItem(g));
+        if (ownedGift) {
+          Game.removeItem(ownedGift);
+          Game.changeAffinity(npc.id, 20);
+          this._pendingText = `「这是……送给我的吗？谢谢你！」${npc.name}十分高兴。`;
+        } else if (gifts.length === 0) {
+          this._pendingText = `${npc.name}似乎对礼物不感兴趣。`;
+        } else {
+          const giftNames = gifts.map(g => Items.get(g)?.name || g).join('、');
+          this._pendingText = `「如果你想送礼，我更喜欢${giftNames}。」`;
+        }
+      },
+      text: '',
+      choices: [{ text: '返回', next: `npc_talk_${npc.id}` }]
+    };
+
+    // 询问情报节点
+    this.nodes[`npc_info_${npc.id}`] = {
+      speaker: npc.name,
+      onEnter: () => {
+        const region = World.regions[npc.region];
+        const info = [
+          `${region.name}的政体是${region.government}。`,
+          `这里的主要势力有${region.factions.map(f => f.name).join('、')}。`,
+          `信仰${World.gods[Object.keys(World.gods).find(g => World.gods[g].followers === region.name)]?.name || '本地神祇'}。`
+        ];
+        this._pendingText = Utils.pick(info);
+      },
+      text: '',
+      choices: [{ text: '返回', next: `npc_talk_${npc.id}` }]
+    };
+  });
+
+  // ========== 旅店休息 ==========
+  this.nodes['proc_inn'] = {
+    speaker: '旅店老板',
+    text: '欢迎光临！住一晚只要 20 金币，保证让你恢复精力。或者花 50 金币享受豪华套房，完全恢复状态。',
+    choices: [
+      { text: '普通住宿（20金币，恢复50%生命法力）', next: 'proc_inn_rest', effects: { gold: -20, time: 8 }, condition: { gold: 20 } },
+      { text: '豪华套房（50金币，完全恢复）', next: 'proc_inn_luxury', effects: { gold: -50, time: 8 }, condition: { gold: 50 } },
+      { text: '离开', next: null, dynamicHub: true }
+    ]
+  };
+  this.nodes['proc_inn_rest'] = {
+    speaker: '',
+    onEnter: () => {
+      const p = Game.state.player;
+      p.hp = Math.min(p.maxHp, p.hp + Math.floor(p.maxHp * 0.5));
+      p.mp = Math.min(p.maxMp, p.mp + Math.floor(p.maxMp * 0.5));
+      this._pendingText = '你在旅店美美地睡了一觉，恢复了不少精力。';
+    },
+    text: '',
+    choices: [{ text: '返回', next: null, dynamicHub: true }]
+  };
+  this.nodes['proc_inn_luxury'] = {
+    speaker: '',
+    onEnter: () => {
+      const p = Game.state.player;
+      p.hp = p.maxHp;
+      p.mp = p.maxMp;
+      this._pendingText = '豪华套房的服务无可挑剔，你完全恢复了状态，甚至感到精神焕发。';
+      Game.gainExp(10);
+    },
+    text: '',
+    choices: [{ text: '返回', next: null, dynamicHub: true }]
+  };
+
+  // ========== 锻造系统 ==========
+  this.nodes['proc_craft'] = {
+    speaker: '锻造师',
+    text: '欢迎来到锻造坊！你可以用材料强化装备，或打造新物品。需要锻造工具和相应的材料。',
+    choices: [
+      { text: '强化武器（需要武器强化石×1）', next: 'craft_weapon', condition: { hasItem: ['weapon_stone'] } },
+      { text: '强化护甲（需要护甲强化石×1）', next: 'craft_armor', condition: { hasItem: ['armor_stone'] } },
+      { text: '炼制药水（需要神秘草药×2）', next: 'craft_potion', condition: { hasItem: ['mysterious_herb', 'mysterious_herb'] } },
+      { text: '离开', next: null, dynamicHub: true }
+    ]
+  };
+  this.nodes['craft_weapon'] = {
+    speaker: '',
+    onEnter: () => {
+      Game.removeItem('weapon_stone');
+      const w = Game.state.player.equipment.weapon;
+      if (w) {
+        const item = Items.get(w);
+        item.atk = (item.atk || 0) + 2;
+        this._pendingText = `你的${item.name}被强化了！攻击力 +2。`;
+      } else {
+        Game.addItem('iron_sword');
+        this._pendingText = '你没有装备武器，锻造师为你打造了一把铁剑。';
+      }
+      Game.gainExp(15);
+    },
+    text: '',
+    choices: [{ text: '返回', next: 'proc_craft' }]
+  };
+  this.nodes['craft_armor'] = {
+    speaker: '',
+    onEnter: () => {
+      Game.removeItem('armor_stone');
+      const a = Game.state.player.equipment.armor;
+      if (a) {
+        const item = Items.get(a);
+        item.def = (item.def || 0) + 2;
+        this._pendingText = `你的${item.name}被强化了！防御力 +2。`;
+      } else {
+        Game.addItem('leather_armor');
+        this._pendingText = '你没有装备护甲，锻造师为你打造了一件皮甲。';
+      }
+      Game.gainExp(15);
+    },
+    text: '',
+    choices: [{ text: '返回', next: 'proc_craft' }]
+  };
+  this.nodes['craft_potion'] = {
+    speaker: '',
+    onEnter: () => {
+      Game.removeItem('mysterious_herb', 2);
+      Game.addItem('greater_health_potion');
+      this._pendingText = '你用神秘草药炼制成了一瓶强效生命药水。';
+      Game.gainExp(10);
+    },
+    text: '',
+    choices: [{ text: '返回', next: 'proc_craft' }]
+  };
+
+  // ========== 赌场博弈 ==========
+  this.nodes['proc_gamble'] = {
+    speaker: '庄家',
+    text: '来试试手气吧！押注金币，猜大小。猜对翻倍，猜错全输。',
+    choices: [
+      { text: '押 10 金币猜大', next: 'gamble_big', effects: { gold: -10 }, condition: { gold: 10 } },
+      { text: '押 10 金币猜小', next: 'gamble_small', effects: { gold: -10 }, condition: { gold: 10 } },
+      { text: '押 50 金币猜大', next: 'gamble_big50', effects: { gold: -50 }, condition: { gold: 50 } },
+      { text: '离开', next: null, dynamicHub: true }
+    ]
+  };
+  const gambleResult = (bet, guessBig) => {
+    const roll = Utils.d20();
+    const isBig = roll >= 11;
+    const win = (guessBig && isBig) || (!guessBig && !isBig);
+    if (win) {
+      Game.addGold(bet * 2);
+      return `骰子开出了 ${roll}（${isBig ? '大' : '小'}），你猜对了！赢得 ${bet * 2} 金币！`;
+    }
+    return `骰子开出了 ${roll}（${isBig ? '大' : '小'}），你猜错了，损失了 ${bet} 金币。`;
+  };
+  this.nodes['gamble_big'] = { speaker: '', onEnter: () => { this._pendingText = gambleResult(10, true); }, text: '', choices: [{ text: '再来一局', next: 'proc_gamble' }, { text: '离开', next: null, dynamicHub: true }] };
+  this.nodes['gamble_small'] = { speaker: '', onEnter: () => { this._pendingText = gambleResult(10, false); }, text: '', choices: [{ text: '再来一局', next: 'proc_gamble' }, { text: '离开', next: null, dynamicHub: true }] };
+  this.nodes['gamble_big50'] = { speaker: '', onEnter: () => { this._pendingText = gambleResult(50, true); }, text: '', choices: [{ text: '再来一局', next: 'proc_gamble' }, { text: '离开', next: null, dynamicHub: true }] };
+
+  // ========== 程序化事件结果节点 ==========
+  this.nodes['procedural_after'] = {
+    speaker: '',
+    text: '',
+    onEnter: () => {
+      const region = Game.state.currentRegion;
+      this._pendingText = '事件结束了。你继续前行。';
+    },
+    choices: [
+      { text: '继续探查', next: null, dynamic: true },
+      { text: '返回地区', next: null, dynamicHub: true }
+    ]
+  };
+
+  this.nodes['procedural_job'] = {
+    speaker: '',
+    text: '你接受了委托。经过一番努力，任务完成了。',
+    choices: [
+      { text: '领取报酬', next: 'procedural_job_reward' }
+    ]
+  };
+
+  this.nodes['procedural_job_reward'] = {
+    speaker: '',
+    onEnter: () => {
+      const region = Game.state.currentRegion;
+      const gold = Utils.randInt(30, 80);
+      const exp = Utils.randInt(20, 50);
+      Game.addGold(gold);
+      Game.addExp(exp);
+      Game.addReputation(region, 3);
+      Game.advanceTime(2);
+      this._pendingText = `你获得了 ${gold} 金币、${exp} 经验值，在${World.regions[region].name}的声望提升了。`;
+    },
+    text: '',
+    choices: [
+      { text: '返回地区', next: null, dynamicHub: true }
+    ]
+  };
+
+  // 返回世界地图节点
+  this.nodes['world_map'] = {
+    speaker: '',
+    text: '你离开了这里，踏上了新的旅途。',
+    choices: [
+      { text: '继续', next: null, toWorldMap: true }
+    ]
+  };
+
+  // 商店节点
+  this.nodes['shop'] = {
+    speaker: '商人',
+    text: '欢迎光临！这里有各种商品可供选购。',
+    choices: [
+      { text: '购买治疗药水（50金币）', next: 'shop', effects: { gold: -50, addItem: ['health_potion'] } },
+      { text: '购买法力药水（60金币）', next: 'shop', effects: { gold: -60, addItem: ['mana_potion'] } },
+      { text: '购买武器强化石（100金币）', next: 'shop', effects: { gold: -100, addItem: ['weapon_stone'] } },
+      { text: '购买护甲强化石（100金币）', next: 'shop', effects: { gold: -100, addItem: ['armor_stone'] } },
+      { text: '购买神秘卷轴（150金币）', next: 'shop', effects: { gold: -150, addItem: ['ancient_scroll'] } },
+      { text: '离开商店', next: null, dynamicHub: true }
+    ]
+  };
+
+  // ========== 主线任务（按等级解锁章节） ==========
+  this.nodes['main_quest'] = {
+    speaker: '主线任务',
+    onEnter: () => {
+      const level = Game.state.player.level;
+      const region = World.regions[Game.state.currentRegion];
+      let chapter, text;
+      if (level >= 20) { chapter = 'mq_ch5'; text = '最终章：命运的抉择。你已拥有改变大陆的力量，是时候面对最终的宿命了。'; }
+      else if (level >= 15) { chapter = 'mq_ch4'; text = '第四章：暗影降临。黑暗势力在大陆各地蠢蠢欲动，你必须集结力量，迎接即将到来的风暴。'; }
+      else if (level >= 10) { chapter = 'mq_ch3'; text = '第三章：风起云涌。各国之间的矛盾日益尖锐，一场波及整个大陆的危机正在酝酿。'; }
+      else if (level >= 5) { chapter = 'mq_ch2'; text = '第二章：盟友与敌人。在旅途中，你结识了许多人，也树敌不少。是时候扩大你的影响力了。'; }
+      else { chapter = 'mq_ch1'; text = '第一章：初出茅庐。你刚刚踏上旅途，艾尔瑟亚大陆的秘密等待你去发现。先提升自己的实力吧。'; }
+      this._pendingText = `【${chapter.replace('mq_ch','第').replace('ch','章')}】\n\n${text}\n\n你当前的等级是 ${level} 级。`;
+      this._pendingChapter = chapter;
+    },
+    text: '',
+    choices: [
+      { text: '继续', next: null, dynamicChapter: true }
+    ]
+  };
+
+  // 第一章
+  this.nodes['mq_ch1'] = {
+    speaker: '',
+    text: '你在旅途中听到了一个传说：在艾尔瑟亚大陆的深处，沉睡着一股名为「源力」的远古力量。据说，谁能掌握源力，谁就能改变世界的命运。\n\n一位神秘的老者拦住了你：「年轻人，源力之路凶险万分。在踏上征途之前，你可愿意接受一个小小的考验？」',
+    choices: [
+      { text: '「我愿意接受考验。」', next: 'mq_ch1_test', effects: { time: 1 } },
+      { text: '「不必了，我会用自己的方式变强。」', next: null, dynamicHub: true }
+    ]
+  };
+  this.nodes['mq_ch1_test'] = {
+    speaker: '老者',
+    text: '「很好。考验很简单——回答我一个问题：在这片大陆上，什么才是最强大的力量？」',
+    choices: [
+      { text: '「是武力，强者为尊。」（力量检定）', check: { attr: 'str', dc: 10 }, success: { exp: 40 }, fail: { exp: 10 }, next: 'mq_ch1_result', effects: { time: 1 } },
+      { text: '「是智慧，知识改变命运。」（智力检定）', check: { attr: 'int', dc: 10 }, success: { exp: 40 }, fail: { exp: 10 }, next: 'mq_ch1_result', effects: { time: 1 } },
+      { text: '「是人心，得民心者得天下。」（魅力检定）', check: { attr: 'cha', dc: 10 }, success: { exp: 40 }, fail: { exp: 10 }, next: 'mq_ch1_result', effects: { time: 1 } }
+    ]
+  };
+  this.nodes['mq_ch1_result'] = {
+    speaker: '老者',
+    text: '「哈哈哈，答案没有对错，只有选择。你的回答，决定了你未来的道路。去吧，在六国历练，提升到5级，再来找我。」老者消失在风中，只留下一枚源力水晶。',
+    choices: [{ text: '继续旅程', next: null, dynamicHub: true, effects: { addItem: ['source_crystal'], exp: 20, time: 1 } }]
+  };
+
+  // 第二章
+  this.nodes['mq_ch2'] = {
+    speaker: '',
+    text: '你的实力已经初露锋芒。各国的势力开始注意到你。\n\n在自由城邦的酒馆里，一个戴兜帽的人递给你一张羊皮纸：「低语者在寻找『源力之钥』，如果你先找到它，就能掌握先机。线索在翡翠森林的世界树根部。」',
+    choices: [
+      { text: '前往翡翠森林寻找线索', next: 'mq_ch2_forest', effects: { time: 3 } },
+      { text: '先调查低语者的底细', next: 'mq_ch2_investigate', effects: { time: 2 } }
+    ]
+  };
+  this.nodes['mq_ch2_forest'] = {
+    speaker: '',
+    text: '你来到世界树的根部，发现一个精灵守卫正在与几个黑衣人战斗。他们就是低语者！',
+    choices: [
+      { text: '帮助精灵守卫', combat: ['dark_mage', 'thug'], next: 'mq_ch2_forest_win' },
+      { text: '趁乱抢夺源力之钥', next: 'mq_ch2_steal', effects: { time: 1 } }
+    ]
+  };
+  this.nodes['mq_ch2_forest_win'] = {
+    speaker: '精灵守卫',
+    text: '「感谢你的援手！这些低语者觊觎世界树的秘密。这枚源力碎片是长老让我交给有缘人的。」',
+    choices: [{ text: '收下碎片', next: null, dynamicHub: true, effects: { addItem: ['source_crystal'], exp: 80, reputation: { emerald_council: 10 }, time: 1 } }]
+  };
+  this.nodes['mq_ch2_steal'] = {
+    speaker: '',
+    text: '你趁乱拿到了源力碎片，但被精灵守卫发现了。他们对你产生了敌意。',
+    choices: [{ text: '快速逃离', next: null, dynamicHub: true, effects: { addItem: ['source_crystal'], exp: 50, reputation: { emerald_council: -10 }, time: 1 } }]
+  };
+  this.nodes['mq_ch2_investigate'] = {
+    speaker: '',
+    text: '你调查了低语者的背景。这个组织遍布六国，暗中收集源力遗物。他们的最终目的似乎是复活「虚无使者」。',
+    choices: [{ text: '继续', next: null, dynamicHub: true, effects: { exp: 60, flag: { know_void: true }, time: 2 } }]
+  };
+
+  // 第三章
+  this.nodes['mq_ch3'] = {
+    speaker: '',
+    text: '大陆的局势愈发紧张。圣光帝国与暗影之地的边境冲突不断升级，熔岩邦联的火山活动异常活跃。\n\n你在探索中发现了一块古老的石板，上面刻着「源力觉醒」的预言：当六国纷争达到顶点时，源力将选择它的继承者。\n\n你需要在各国之间斡旋，为即将到来的风暴做准备。',
+    choices: [
+      { text: '前往圣光帝国调停', next: 'mq_ch3_empire', effects: { time: 3 } },
+      { text: '前往暗影之地探查', next: 'mq_ch3_shadow', effects: { time: 3 } },
+      { text: '集结你认识的盟友', next: 'mq_ch3_allies', effects: { time: 2 } }
+    ]
+  };
+  this.nodes['mq_ch3_empire'] = {
+    speaker: '布莱克枢机',
+    text: '「暗影之地的亡灵越境袭击，我们必须先发制人！」枢机主教态度强硬。你能说服他冷静吗？',
+    choices: [
+      { text: '劝说枢机保持克制（魅力检定）', check: { attr: 'cha', dc: 14 }, success: { reputation: { holy_empire: 15, shadow_lands: 5 } }, fail: { reputation: { holy_empire: -5 } }, next: null, dynamicHub: true, effects: { exp: 100, time: 2 } },
+      { text: '支持先发制人', next: null, dynamicHub: true, effects: { reputation: { holy_empire: 10, shadow_lands: -10 }, exp: 50, time: 1 } }
+    ]
+  };
+  this.nodes['mq_ch3_shadow'] = {
+    speaker: '诺克斯女士',
+    text: '「帝国想开战？正好。但你要知道，真正的敌人不在边境，而在暗处。低语者正在策划一场大阴谋。」',
+    choices: [
+      { text: '与诺克斯合作调查', next: null, dynamicHub: true, effects: { affinity: { mistress_nox: 15 }, exp: 80, flag: { nox_alliance: true }, time: 2 } },
+      { text: '婉拒，独自调查', next: null, dynamicHub: true, effects: { exp: 50, time: 1 } }
+    ]
+  };
+  this.nodes['mq_ch3_allies'] = {
+    speaker: '',
+    text: '你联系了旅途中结识的盟友。艾琳娜、莉拉蕾、格鲁尼尔、薇薇安、德雷文、艾古尔……他们都表示愿意在关键时刻助你一臂之力。',
+    choices: [{ text: '继续', next: null, dynamicHub: true, effects: { exp: 100, addItem: ['ancient_scroll'], time: 2 } }]
+  };
+
+  // 第四章
+  this.nodes['mq_ch4'] = {
+    speaker: '',
+    text: '黑暗终于露出了獠牙。「虚无使者」的分身出现在大陆各地，屠戮生灵。\n\n你必须在六国之间奔走，说服他们放下分歧，共同对抗虚无使者。你的声望、人脉和实力将经受前所未有的考验。',
+    choices: [
+      { text: '在圣光帝国发表演说，号召联合（魅力检定）', check: { attr: 'cha', dc: 16 }, success: { reputation: { holy_empire: 20 } }, fail: { hp: -10 }, next: 'mq_ch4_rally', effects: { time: 3 } },
+      { text: '直接向六国展示源力水晶的力量', next: 'mq_ch4_show', effects: { time: 2 } }
+    ]
+  };
+  this.nodes['mq_ch4_rally'] = {
+    speaker: '',
+    text: '你的演说震撼了众人。六国的代表纷纷表示愿意组成联军，共同对抗虚无使者。',
+    choices: [{ text: '继续', next: null, dynamicHub: true, effects: { exp: 200, gold: 200, flag: { alliance_formed: true }, time: 2 } }]
+  };
+  this.nodes['mq_ch4_show'] = {
+    speaker: '',
+    text: '你展示了源力水晶的力量，光芒笼罩了整个议事厅。各国代表震惊之余，同意联合抗敌。',
+    choices: [{ text: '继续', next: null, dynamicHub: true, effects: { exp: 150, gold: 100, flag: { alliance_formed: true }, time: 1 } }]
+  };
+
+  // 第五章（最终章）
+  this.nodes['mq_ch5'] = {
+    speaker: '',
+    text: '你终于站在了命运的十字路口。虚无使者的真身就在大陆的中心——源力之渊。\n\n六国的联军已经集结，他们等待着你的领导。你将带领他们进入源力之渊，与虚无使者展开最终决战。\n\n胜，则大陆重获光明；败，则万物归于虚无。',
+    choices: [
+      { text: '进入源力之渊，迎接最终决战', next: 'mq_final_prep' },
+      { text: '再准备一下', next: null, dynamicHub: true }
+    ]
+  };
+
+  this.nodes['mq_final_prep'] = {
+    speaker: '',
+    text: '进入源力之渊前，你有最后的准备机会。盟友们为你加油打气。',
+    choices: [
+      { text: '接受盟友的祝福（恢复全部状态）', next: 'mq_final_boss', effects: { time: 1 } },
+      { text: '直接进入决战', next: 'mq_final_boss' }
+    ],
+    onEnter: () => {
+      const p = Game.state.player;
+      p.hp = p.maxHp;
+      p.mp = p.maxMp;
+    }
+  };
+
+  // 最终BOSS
+  this.nodes['mq_final_boss'] = {
+    speaker: '虚无使者',
+    text: '「渺小的凡人……你以为区区六国联军就能阻挡虚无？源力本就该归于虚无！」虚无使者的力量令人窒息，但你已无路可退。',
+    choices: [
+      { text: '战斗！', combat: ['void_herald'], next: 'mq_ending' }
+    ]
+  };
+
+  this.nodes['mq_ending'] = {
+    speaker: '',
+    text: '虚无使者在你的面前消散。源力之渊的光芒重新绽放，大陆恢复了和平。\n\n你成为了艾尔瑟亚大陆的救世主，你的名字将被永远铭记。六国的人民在你的旗帜下团结一心，开启了新的纪元。',
+    choices: [{ text: '查看结局', next: 'ending_calculate' }]
   };
 };
 
