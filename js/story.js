@@ -657,6 +657,6 @@ const Endings = {
     // 添加等级信息
     ending.text += ` 你以${p.level}级的实力结束了这段传奇。`;
 
-    return { title: ending.title, text: ending.text };
+    return { title: ending.title, text: ending.text, factors };
   }
 };

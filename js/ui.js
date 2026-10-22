@@ -3,6 +3,23 @@ const UI = {
   uiLayer: null,
   dialogLayer: null,
 
+  // 地区视觉配置（图标、主题色、辉光色）
+  regionVisual: {
+    holy_empire: { icon: '⛪', color: '#f5d76e', glow: 'rgba(245,215,110,0.35)' },
+    emerald_council: { icon: '🌲', color: '#5cb85c', glow: 'rgba(92,184,92,0.35)' },
+    lava_confederation: { icon: '🌋', color: '#e8743c', glow: 'rgba(232,116,60,0.35)' },
+    free_cities: { icon: '🏛️', color: '#7a8ef0', glow: 'rgba(122,142,240,0.35)' },
+    shadow_lands: { icon: '🌙', color: '#9b7ac9', glow: 'rgba(155,122,201,0.35)' },
+    steppe_tribes: { icon: '🐎', color: '#9ad64a', glow: 'rgba(154,214,74,0.35)' }
+  },
+
+  // 职业图标
+  classIcons: {
+    paladin: '🛡️', inquisitor: '⚖️', druid: '🌿', ranger: '🏹',
+    rune_warrior: '🪓', artisan: '🔧', bard: '🎵', rogue: '🗡️',
+    necromancer: '💀', assassin: '🥷', shaman: '🪶', berserker: '🪓'
+  },
+
   init() {
     this.uiLayer = document.getElementById('ui-layer');
     this.dialogLayer = document.getElementById('dialog-layer');
@@ -84,6 +101,37 @@ const UI = {
     }
   },
 
+  // 地区视觉主题
+  regionTheme(regionId) {
+    const themes = {
+      holy_empire: {
+        emblem: '✦', gradient: 'linear-gradient(135deg, #3a2a1a 0%, #2a1a0a 50%, #4a3520 100%)',
+        accent: '#f5e6c8', god: '黎明之神', icon: '⚔️', pattern: 'radial-gradient(circle at 30% 20%, rgba(245,230,200,0.12), transparent 50%)'
+      },
+      emerald_council: {
+        emblem: '❦', gradient: 'linear-gradient(135deg, #1a3a1a 0%, #0a2a1a 50%, #2a4a2a 100%)',
+        accent: '#7ac97a', god: '自然之母', icon: '🌿', pattern: 'radial-gradient(circle at 70% 30%, rgba(122,201,122,0.12), transparent 50%)'
+      },
+      lava_confederation: {
+        emblem: '⚒', gradient: 'linear-gradient(135deg, #3a1a0a 0%, #2a0a05 50%, #4a2510 100%)',
+        accent: '#ff8a3a', god: '熔炉之主', icon: '🔥', pattern: 'radial-gradient(circle at 50% 80%, rgba(255,138,58,0.15), transparent 50%)'
+      },
+      free_cities: {
+        emblem: '⚖', gradient: 'linear-gradient(135deg, #1a1f3a 0%, #0a1025 50%, #253050 100%)',
+        accent: '#7aaaff', god: '商贾之神', icon: '💰', pattern: 'radial-gradient(circle at 20% 70%, rgba(122,170,255,0.12), transparent 50%)'
+      },
+      shadow_lands: {
+        emblem: '☾', gradient: 'linear-gradient(135deg, #1a0a2a 0%, #0a0515 50%, #251540 100%)',
+        accent: '#9a7acc', god: '暗夜之主', icon: '🦇', pattern: 'radial-gradient(circle at 80% 50%, rgba(154,122,204,0.12), transparent 50%)'
+      },
+      steppe_tribes: {
+        emblem: '✧', gradient: 'linear-gradient(135deg, #2a3a1a 0%, #1a250a 50%, #405020 100%)',
+        accent: '#aacc5a', god: '风暴之灵', icon: '🏹', pattern: 'radial-gradient(circle at 60% 60%, rgba(170,204,90,0.12), transparent 50%)'
+      }
+    };
+    return themes[regionId] || themes.holy_empire;
+  },
+
   // 角色创建
   renderCharCreate() {
     this.clear();
@@ -91,7 +139,7 @@ const UI = {
     container.id = 'char-create';
     container.innerHTML = `
       <h1 class="title">选择你的出身</h1>
-      <p class="subtitle">选择一个国家/地区开始你的冒险</p>
+      <p class="subtitle">选择一个国家/地区开始你的冒险 · 每个国度都有独特的政体、信仰与势力</p>
       <div class="region-grid" id="region-grid"></div>
       <div id="class-section" style="margin-top:24px;display:none;">
         <h2 class="title" style="font-size:20px;">选择特色职业</h2>
@@ -108,19 +156,34 @@ const UI = {
 
     const regionGrid = document.getElementById('region-grid');
     Object.values(World.regions).forEach(r => {
+      const theme = this.regionTheme(r.id);
+      const factionsList = r.factions.slice(0, 3).map(f => f.name).join('、');
       const card = document.createElement('div');
       card.className = 'region-card';
-      card.innerHTML = `<h3>${r.name}</h3><p><b>政体：</b>${r.government}</p><p>${r.desc}</p>`;
+      card.style.setProperty('--region-color', theme.accent);
+      card.style.setProperty('--region-glow', theme.accent + '55');
+      card.innerHTML = `
+        <div class="region-icon">${theme.icon}</div>
+        <h3>${r.name}</h3>
+        <span class="gov-tag">${r.government}</span>
+        <span class="gov-tag" style="margin-left:6px;">信仰 ${theme.god}</span>
+        <p>${r.desc}</p>
+        <div style="display:flex;gap:14px;font-size:11px;color:#8a7a5a;margin-top:6px;">
+          <span>🌡 ${r.climate.split('，')[0]}</span>
+          <span>💰 物价 ${Math.round(r.priceMod * 100)}%</span>
+        </div>
+        <div class="region-factions"><b>主要势力：</b>${factionsList}</div>
+      `;
       card.onclick = () => {
         document.querySelectorAll('.region-card').forEach(c => c.classList.remove('selected'));
         card.classList.add('selected');
         selectedRegion = r.id;
-        this.showClasses(r.id);
+        this.showClasses(r.id, theme);
       };
       regionGrid.appendChild(card);
     });
 
-    this.showClasses = (regionId) => {
+    this.showClasses = (regionId, theme) => {
       const section = document.getElementById('class-section');
       const grid = document.getElementById('class-grid');
       grid.innerHTML = '';
@@ -129,7 +192,13 @@ const UI = {
         const card = document.createElement('div');
         card.className = 'class-card';
         const attrs = Object.entries(cls.attrs).map(([k, v]) => `${this.attrShort(k)}${v}`).join(' ');
-        card.innerHTML = `<h4>${cls.name}</h4><p style="font-size:12px;color:#a89878;margin:6px 0;">${cls.desc}</p><div class="attr-row">${attrs}</div>`;
+        const icon = this.classIcons[cls.id] || '⚔️';
+        card.innerHTML = `
+          <div class="class-icon">${icon}</div>
+          <h4 style="color:${theme.accent}">${cls.name}</h4>
+          <p style="font-size:12px;color:#a89878;margin:6px 0;">${cls.desc}</p>
+          <div class="attr-row">${attrs}</div>
+        `;
         card.onclick = () => {
           document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
           card.classList.add('selected');
@@ -318,6 +387,7 @@ const UI = {
   openSaveMenu() {
     const modal = document.createElement('div');
     modal.className = 'modal';
+    modal.id = 'save-modal';
     let slots = '';
     for (let i = 0; i < 3; i++) {
       const has = Game.hasSave(i);
@@ -347,6 +417,7 @@ const UI = {
   openMap() {
     const modal = document.createElement('div');
     modal.className = 'modal';
+    modal.id = 'map-modal';
     let regions = '';
     Object.values(World.regions).forEach(r => {
       regions += `<div class="shop-item">
@@ -440,13 +511,52 @@ const UI = {
 
   showEnding() {
     const ending = Endings.calculate();
+    const factors = ending.factors || {};
+    const region = World.regions[factors.topRegion] || World.regions.free_cities;
+    const theme = this.regionTheme(factors.topRegion);
+    const path = World.careerPaths[factors.path] || World.careerPaths.adventurer;
+    const pathGlyphs = { politician: '♛', merchant: '💰', adventurer: '⚔', mage: '✦' };
+    const p = Game.state.player;
+    const attrs = Game.getPlayerAttrs();
+
     this.clear();
     const screen = document.createElement('div');
     screen.id = 'ending-screen';
+    screen.className = `ending-${factors.path || 'adventurer'}`;
+    screen.style.setProperty('--end-color', theme.accent);
+    screen.style.setProperty('--end-glow', theme.accent + '40');
+    screen.style.setProperty('--end-glyph', `"${pathGlyphs[factors.path] || '✦'}"`);
     screen.innerHTML = `
-      <h2>${ending.title}</h2>
-      <div class="ending-text">${ending.text}</div>
-      <button class="btn btn-primary" onclick="UI.renderMainMenu()">返回主菜单</button>
+      <div class="ending-bg-pattern"></div>
+      <div class="ending-content">
+        <div class="ending-emblem" style="color:${theme.accent};border-color:${theme.accent};">${theme.emblem}</div>
+        <div class="ending-region-label">${region.name} · ${path.name}之路</div>
+        <h2 class="ending-title" style="color:${theme.accent};">${ending.title}</h2>
+        <div class="ending-divider"></div>
+        <div class="ending-text">${ending.text}</div>
+        <div class="ending-stats">
+          <div class="ending-stat">
+            <span class="stat-label">角色</span>
+            <span class="stat-value">${p.name}</span>
+          </div>
+          <div class="ending-stat">
+            <span class="stat-label">职业</span>
+            <span class="stat-value">${p.className}</span>
+          </div>
+          <div class="ending-stat">
+            <span class="stat-label">等级</span>
+            <span class="stat-value">Lv.${p.level}</span>
+          </div>
+          <div class="ending-stat">
+            <span class="stat-label">伴侣</span>
+            <span class="stat-value">${factors.married ? (NPCs[Game.state.spouse]?.name || '神秘人') : '无'}</span>
+          </div>
+        </div>
+        <div class="ending-attrs">
+          ${Object.entries(attrs).map(([k, v]) => `<div class="attr-pill"><span>${this.attrShort(k).trim()}</span><b>${v}</b></div>`).join('')}
+        </div>
+        <button class="btn btn-primary ending-return" onclick="UI.renderMainMenu()">返回主菜单</button>
+      </div>
     `;
     this.uiLayer.appendChild(screen);
   }
