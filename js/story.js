@@ -863,9 +863,11 @@ Story.initNodes = function() {
   const hubRegions = Object.keys(World.regions);
   hubRegions.forEach(regionId => {
     const region = World.regions[regionId];
+    const atm = Procedural.atmosphere[regionId];
+    const atmText = atm ? `${atm.sight}\n\n${atm.smell}\n\n` : '';
     this.nodes[`hub_${regionId}`] = {
       speaker: region.name,
-      text: `你来到了${region.name}。这里是${region.government}，空气中弥漫着独特的气息。你可以在此停留，探索这片土地的秘密。`,
+      text: `你来到了${region.name}。这里是${region.government}。\n\n${atmText}你可以在此停留，探索这片土地的秘密。`,
       choices: [
         { text: '⚔️ 主线任务', next: 'main_quest' },
         { text: '🔍 探查周围', next: `proc_encounter_${regionId}` },
@@ -890,7 +892,8 @@ Story.initNodes = function() {
         const enc = Procedural.generateEncounter(regionId);
         const career = Game.state.careerPath || 'adventurer';
         const timeOfDay = Utils.timeOfDay(Game.state.time.hour);
-        this._pendingText = `${Procedural.timeFlavor[timeOfDay] || ''} ${Procedural.careerFlavor[career] || ''}\n\n${enc.text}`;
+        const atmosphere = Procedural.getAtmosphere(regionId);
+        this._pendingText = `${Procedural.timeFlavor[timeOfDay] || ''} ${Procedural.careerFlavor[career] || ''}\n\n${atmosphere}\n\n${enc.text}`;
         this._pendingChoices = Procedural.generateChoices(enc, regionId);
         this._pendingRegion = regionId;
         this._pendingType = enc.type;
