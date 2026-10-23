@@ -190,6 +190,14 @@ const Story = {
       Utils.toast(`无法执行：${reason}`);
       return;
     }
+    // NPC 反应表情
+    if (choice.npcReaction) {
+      const currentNode = this.nodes[Game.state.currentStoryNode];
+      if (currentNode && currentNode.npcId) {
+        currentNode.expression = NPCPortraits.getExpressionForAction(choice.npcReaction, currentNode.npcId);
+        this._pendingNpcReaction = choice.npcReaction;
+      }
+    }
     // onChoice 回调
     if (choice.onChoice) choice.onChoice();
     // 应用节点级待定效果（训练/社交/探索）
@@ -1048,25 +1056,36 @@ Story.initNodes = function() {
   Object.values(NPCs).forEach(npc => {
     this.nodes[`npc_talk_${npc.id}`] = {
       speaker: npc.name,
+      npcId: npc.id,
+      expression: 'neutral',
       onEnter: () => {
         const aff = Game.getAffinity(npc.id);
         const stage = Utils.relationStage(aff);
         const dialogs = npc.dialog[stage] || npc.dialog.stranger || ['……'];
         const line = Utils.pick(dialogs);
         this._pendingText = line;
+        // 优先使用玩家行为触发的表情，否则按好感度阶段
+        if (this._pendingNpcReaction) {
+          this.expression = NPCPortraits.getExpressionForAction(this._pendingNpcReaction, npc.id);
+          this._pendingNpcReaction = null;
+        } else {
+          this.expression = NPCPortraits.getExpressionForAffinity(aff, npc.id);
+        }
       },
       text: '',
       choices: [
-        { text: '闲聊（+好感）', next: `npc_talk_${npc.id}`, effects: { affinity: { [npc.id]: 3 }, time: 1 } },
-        { text: '赠送礼物', next: `npc_gift_${npc.id}` },
-        { text: '询问情报', next: `npc_info_${npc.id}`, effects: { time: 1 } },
-        { text: '离开', next: null, dynamicHub: true }
+        { text: '闲聊（+好感）', next: `npc_talk_${npc.id}`, effects: { affinity: { [npc.id]: 3 }, time: 1 }, npcReaction: 'chat' },
+        { text: '赠送礼物', next: `npc_gift_${npc.id}`, npcReaction: 'gift_good' },
+        { text: '询问情报', next: `npc_info_${npc.id}`, effects: { time: 1 }, npcReaction: 'info' },
+        { text: '离开', next: null, dynamicHub: true, npcReaction: 'leave' }
       ]
     };
 
     // 赠送礼物节点
     this.nodes[`npc_gift_${npc.id}`] = {
       speaker: npc.name,
+      npcId: npc.id,
+      expression: 'happy',
       onEnter: () => {
         const gifts = npc.gifts || [];
         const ownedGift = gifts.find(g => Game.hasItem(g));
@@ -1074,11 +1093,14 @@ Story.initNodes = function() {
           Game.removeItem(ownedGift);
           Game.changeAffinity(npc.id, 20);
           this._pendingText = `「这是……送给我的吗？谢谢你！」${npc.name}十分高兴。`;
+          this.expression = 'happy';
         } else if (gifts.length === 0) {
           this._pendingText = `${npc.name}似乎对礼物不感兴趣。`;
+          this.expression = 'cold';
         } else {
           const giftNames = gifts.map(g => Items.get(g)?.name || g).join('、');
           this._pendingText = `「如果你想送礼，我更喜欢${giftNames}。」`;
+          this.expression = 'cold';
         }
       },
       text: '',
@@ -1088,6 +1110,8 @@ Story.initNodes = function() {
     // 询问情报节点
     this.nodes[`npc_info_${npc.id}`] = {
       speaker: npc.name,
+      npcId: npc.id,
+      expression: 'wise',
       onEnter: () => {
         const region = World.regions[npc.region];
         const info = [
@@ -1096,6 +1120,7 @@ Story.initNodes = function() {
           `信仰${World.gods[Object.keys(World.gods).find(g => World.gods[g].followers === region.name)]?.name || '本地神祇'}。`
         ];
         this._pendingText = Utils.pick(info);
+        this.expression = 'wise';
       },
       text: '',
       choices: [{ text: '返回', next: `npc_talk_${npc.id}` }]
@@ -1244,9 +1269,46 @@ Story.initNodes = function() {
 
   this.nodes['procedural_job'] = {
     speaker: '',
-    text: '你接受了委托。经过一番努力，任务完成了。',
+    text: '',
+    onEnter: () => {
+      const type = MiniGames.randomType();
+      const region = Game.state.currentRegion;
+      const regionName = World.regions[region]?.name || '此地';
+      this._pendingText = `你在${regionName}接到了一份【${MiniGames.gameTypes[type].name}】。${MiniGames.gameTypes[type].desc}。准备好后开始任务。`;
+      this._pendingChoices = [{ text: `开始任务（${MiniGames.gameTypes[type].icon} ${MiniGames.gameTypes[type].name}）`, next: `proc_job_start_${type}` }];
+    },
+    choices: []
+  };
+
+  // 委托小游戏启动节点
+  ['combat', 'collect', 'puzzle', 'stealth', 'escort'].forEach(type => {
+    this.nodes[`proc_job_start_${type}`] = {
+      speaker: '',
+      text: '',
+      onEnter: () => {
+        MiniGames.start(type, (success) => {
+          if (success) {
+            Story.showNode('procedural_job_reward');
+          } else {
+            Story.showNode('procedural_job_fail');
+          }
+        });
+      },
+      choices: []
+    };
+  });
+
+  this.nodes['procedural_job_fail'] = {
+    speaker: '',
+    onEnter: () => {
+      const region = Game.state.currentRegion;
+      Game.addReputation(region, -2);
+      Game.advanceTime(2);
+      this._pendingText = `任务失败了……委托人很失望，你在当地的声望有所下降。`;
+    },
+    text: '',
     choices: [
-      { text: '领取报酬', next: 'procedural_job_reward' }
+      { text: '返回地区', next: null, dynamicHub: true }
     ]
   };
 

@@ -279,8 +279,14 @@ const UI = {
     const panel = document.createElement('div');
     panel.id = 'story-panel';
     panel.className = 'fade-in';
+    // NPC 肖像
+    let portraitHtml = '';
+    if (node.npcId) {
+      const expr = node.expression || 'neutral';
+      portraitHtml = `<div class="npc-portrait-wrap">${NPCPortraits.render(node.npcId, expr, 110)}</div>`;
+    }
     const speakerHtml = node.speaker ? `<div class="story-speaker">${node.speaker}</div>` : '';
-    panel.innerHTML = `${speakerHtml}<div class="story-text" id="story-text"></div>`;
+    panel.innerHTML = `${portraitHtml}<div class="story-content">${speakerHtml}<div class="story-text" id="story-text"></div></div>`;
     this.dialogLayer.appendChild(panel);
 
     const textEl = document.getElementById('story-text');
