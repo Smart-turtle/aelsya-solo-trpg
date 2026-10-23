@@ -59,7 +59,7 @@ const UI = {
         <h2 class="title" style="font-size:24px;">关于《源界：艾尔瑟亚》</h2>
         <p style="margin:16px 0;line-height:1.8;">
           一款单人跑团风格的角色扮演游戏。在架空世界「艾尔瑟亚」中，六大国度各有政体与特色职业。
-          你可以选择从政、经商、勇者或法师之路，与 NPC 建立关系甚至结婚。
+          你可以与 NPC 建立关系甚至结婚，探索六国的独特剧情。
           每一个选择都将影响你的结局，数十种结局等你探索。<br><br>
           操作：WASD/方向键移动，鼠标点击交互。
         </p>
@@ -248,7 +248,6 @@ const UI = {
       <div class="hud-right">
         <div class="hud-panel panel">
           <div class="hud-time">${Game.getTimeString()}</div>
-          <div>${Game.state.careerPath ? '路线：' + World.careerPaths[Game.state.careerPath].name : ''}</div>
           <div>${Game.state.spouse ? '伴侣：' + (NPCs[Game.state.spouse]?.name || '') : ''}</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">

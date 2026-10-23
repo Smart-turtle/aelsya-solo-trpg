@@ -270,39 +270,6 @@ Story.initNodes = function() {
     ]
   };
 
-  // ========== 通用：路线选择 ==========
-  this.nodes['career_choice'] = {
-    speaker: '',
-    text: '在你的旅途中，你需要选择一条属于自己的道路。你的选择将影响你与各国势力的关系，以及最终的命运。',
-    choices: [
-      { text: '从政——投身各国政治，追求权力', effects: { careerPath: 'politician' }, next: 'career_politics_intro' },
-      { text: '经商——穿梭六国贸易，积累财富', effects: { careerPath: 'merchant' }, next: 'career_merchant_intro' },
-      { text: '勇者——接受委托，探索未知', effects: { careerPath: 'adventurer' }, next: 'career_adventurer_intro' },
-      { text: '法师——研究源力，追求真理', effects: { careerPath: 'mage' }, next: 'career_mage_intro' }
-    ]
-  };
-
-  this.nodes['career_politics_intro'] = {
-    speaker: '',
-    text: '你选择了从政之路。各国的政体各异：神权、议会、寡头、隐秘统治……你将与各国的政治层级人物打交道，在权谋与外交中寻找自己的位置。',
-    choices: [{ text: '继续旅程', next: 'region_generic_quest' }]
-  };
-  this.nodes['career_merchant_intro'] = {
-    speaker: '',
-    text: '你选择了经商之路。六国的物价各异，贸易协定与税收将影响你的利润。但要小心——商业永远与政治交织。',
-    choices: [{ text: '继续旅程', next: 'region_generic_quest' }]
-  };
-  this.nodes['career_adventurer_intro'] = {
-    speaker: '',
-    text: '你选择了勇者之路。各国都有需要解决的问题与委托，你的实力与人脉将决定你能走多远。',
-    choices: [{ text: '继续旅程', next: 'region_generic_quest' }]
-  };
-  this.nodes['career_mage_intro'] = {
-    speaker: '',
-    text: '你选择了法师之路。源力是这个世界的根基，各国对法术的态度不一——有的尊崇，有的忌惮。',
-    choices: [{ text: '继续旅程', next: 'region_generic_quest' }]
-  };
-
   // ========== 通用地区任务引导 ==========
   this.nodes['region_generic_quest'] = {
     speaker: '',
@@ -361,19 +328,19 @@ Story.initNodes = function() {
     speaker: '',
     text: '元老院的议政厅庄严肃穆，贵族们正在激烈讨论。一位枢机主教注意到了你。',
     choices: [
-      { text: '上前攀谈（魅力检定）', check: { attr: 'cha', dc: 13 }, success: { affinity: { cardinal_black: 10 }, flag: { he_politics_intro: true } }, fail: { affinity: { cardinal_black: -5 } }, next: 'career_choice', effects: { time: 2 } },
-      { text: '旁听后离开', next: 'career_choice', effects: { time: 1 } }
+      { text: '上前攀谈（魅力检定）', check: { attr: 'cha', dc: 13 }, success: { affinity: { cardinal_black: 10 }, flag: { he_politics_intro: true } }, fail: { affinity: { cardinal_black: -5 } }, next: 'region_generic_quest', effects: { time: 2 } },
+      { text: '旁听后离开', next: 'region_generic_quest', effects: { time: 1 } }
     ]
   };
   this.nodes['he_politics_intro'] = {
     speaker: '',
     text: '你对帝国的神权政治有了初步了解。教宗与枢机院掌握神权，元老院分享世俗权力，而审判庭在暗中执行清洗。',
-    choices: [{ text: '选择你的道路', next: 'career_choice' }]
+    choices: [{ text: '选择你的道路', next: 'region_generic_quest' }]
   };
   this.nodes['he_explore_1'] = {
     speaker: '',
     text: '你在圣城中漫步，感受着帝国的繁华与秩序。集市上商品琳琅满目，教堂的歌声悠扬。',
-    choices: [{ text: '继续探索', next: 'career_choice', effects: { gold: 20, time: 3 } }]
+    choices: [{ text: '继续探索', next: 'region_generic_quest', effects: { gold: 20, time: 3 } }]
   };
 
   // ========== 翡翠森林剧情 ==========
@@ -405,12 +372,12 @@ Story.initNodes = function() {
   this.nodes['ec_victory_1'] = {
     speaker: '',
     text: '你击败了暗影渗透者，森林的枯萎暂时停止了。长老对你表示感谢。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { elder_caelum: 20 }, exp: 50, gold: 30, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { affinity: { elder_caelum: 20 }, exp: 50, gold: 30, time: 1 } }]
   };
   this.nodes['ec_after_1'] = {
     speaker: '',
     text: '你处理了森林的危机，翡翠议会对你刮目相看。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { exp: 30, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { exp: 30, time: 1 } }]
   };
   this.nodes['ec_learn_1'] = {
     speaker: '凯鲁姆长老',
@@ -420,7 +387,7 @@ Story.initNodes = function() {
   this.nodes['ec_report_1'] = {
     speaker: '凯鲁姆长老',
     text: '「黑暗源力……果然是他们。感谢你的情报，森林会记住你的恩情。」',
-    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { elder_caelum: 10 }, exp: 20, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { affinity: { elder_caelum: 10 }, exp: 20, time: 1 } }]
   };
   this.nodes['ec_npc_lyralei_1'] = {
     speaker: '莉拉蕾',
@@ -433,12 +400,12 @@ Story.initNodes = function() {
   this.nodes['ec_lyralei_2'] = {
     speaker: '莉拉蕾',
     text: '「今晚的月色很美，愿意和我一起走走吗？」',
-    choices: [{ text: '「荣幸之至。」', next: 'career_choice', effects: { affinity: { lyralei: 10 }, time: 2 } }]
+    choices: [{ text: '「荣幸之至。」', next: 'region_generic_quest', effects: { affinity: { lyralei: 10 }, time: 2 } }]
   };
   this.nodes['ec_explore_1'] = {
     speaker: '',
     text: '你在翡翠森林中漫步，古树的低语让你心旷神怡。你采集了一些草药。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { addItem: ['herb_pouch'], time: 3 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { addItem: ['herb_pouch'], time: 3 } }]
   };
 
   // ========== 熔岩邦联剧情 ==========
@@ -461,25 +428,25 @@ Story.initNodes = function() {
   this.nodes['lc_mine_1'] = {
     speaker: '',
     text: '你在矿场帮忙开采矿石，虽然辛苦但收获颇丰。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { gold: 40, exp: 25, time: 4 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { gold: 40, exp: 25, time: 4 } }]
   };
   this.nodes['lc_merchant_1'] = {
     speaker: '恩贝尔夫人',
     text: '「生意归生意，朋友归朋友。邦联的矿产贸易利润丰厚，但各城邦的领主议会总想分一杯羹。你有兴趣做中间商吗？」',
     choices: [
       { text: '「我对经商有兴趣。」', next: 'lc_trade_1', effects: { time: 1 } },
-      { text: '「我只是路过。」', next: 'career_choice', effects: { time: 1 } }
+      { text: '「我只是路过。」', next: 'region_generic_quest', effects: { time: 1 } }
     ]
   };
   this.nodes['lc_trade_1'] = {
     speaker: '',
     text: '你参与了邦联的矿产贸易，赚取了第一桶金。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { gold: 60, time: 3 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { gold: 60, time: 3 } }]
   };
   this.nodes['lc_explore_1'] = {
     speaker: '',
     text: '你参观了活火山，感受到了炽焰源力的脉动。你拾取了一块符文石。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { addItem: ['rune_stone'], time: 3 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { addItem: ['rune_stone'], time: 3 } }]
   };
 
   // ========== 自由城邦剧情 ==========
@@ -487,32 +454,32 @@ Story.initNodes = function() {
     speaker: '索林大法师',
     text: '「知识是最珍贵的财富。你对源力魔法感兴趣吗？学院正在筹备法师比武大会，有兴趣参加吗？」',
     choices: [
-      { text: '「我想参加！」（智力检定）', check: { attr: 'int', dc: 12 }, success: { exp: 40, gold: 50 }, fail: { hp: -10 }, next: 'career_choice', effects: { time: 3 } },
+      { text: '「我想参加！」（智力检定）', check: { attr: 'int', dc: 12 }, success: { exp: 40, gold: 50 }, fail: { hp: -10 }, next: 'region_generic_quest', effects: { time: 3 } },
       { text: '「我更想了解学院的研究。」', next: 'fc_academy_1', effects: { time: 1 } }
     ]
   };
   this.nodes['fc_academy_1'] = {
     speaker: '',
     text: '你在法师学院的图书馆中阅读了大量源力文献，受益匪浅。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { exp: 30, time: 3 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { exp: 30, time: 3 } }]
   };
   this.nodes['fc_npc_vivienne_1'] = {
     speaker: '薇薇安',
     text: '「哦？又一个想发财的可怜虫。在自由城邦，信任是最贵的商品。你找我有什么事？」',
     choices: [
-      { text: '「我想加入盗贼公会。」（敏捷检定）', check: { attr: 'dex', dc: 13 }, success: { affinity: { vivienne: 15 }, flag: { fc_thief: true } }, fail: { affinity: { vivienne: -10 } }, next: 'career_choice', effects: { time: 2 } },
+      { text: '「我想加入盗贼公会。」（敏捷检定）', check: { attr: 'dex', dc: 13 }, success: { affinity: { vivienne: 15 }, flag: { fc_thief: true } }, fail: { affinity: { vivienne: -10 } }, next: 'region_generic_quest', effects: { time: 2 } },
       { text: '「我只是来打听消息。」', next: 'fc_info_1', effects: { time: 1 } }
     ]
   };
   this.nodes['fc_info_1'] = {
     speaker: '薇薇安',
     text: '「消息是要花钱的。不过看你顺眼，免费告诉你：最近商人议会要选举，各派都在暗中角力。」',
-    choices: [{ text: '「多谢。」', next: 'career_choice', effects: { affinity: { vivienne: 5 }, time: 1 } }]
+    choices: [{ text: '「多谢。」', next: 'region_generic_quest', effects: { affinity: { vivienne: 5 }, time: 1 } }]
   };
   this.nodes['fc_merchant_1'] = {
     speaker: '',
     text: '你在集市中发现了商机——低价收购本地特产，高价卖到外地。',
-    choices: [{ text: '尝试贸易', next: 'career_choice', effects: { gold: 50, time: 3 } }]
+    choices: [{ text: '尝试贸易', next: 'region_generic_quest', effects: { gold: 50, time: 3 } }]
   };
 
   // ========== 暗影之地剧情 ==========
@@ -529,36 +496,36 @@ Story.initNodes = function() {
     text: '「有趣……证明你的价值吧。去处理一个不听话的仆从。」',
     choices: [
       { text: '接受任务（战斗）', combat: ['skeleton'], next: 'sl_done_1' },
-      { text: '用言语说服（魅力检定）', check: { attr: 'cha', dc: 14 }, success: { affinity: { mistress_nox: 10 }, exp: 30 }, next: 'career_choice', effects: { time: 2 } }
+      { text: '用言语说服（魅力检定）', check: { attr: 'cha', dc: 14 }, success: { affinity: { mistress_nox: 10 }, exp: 30 }, next: 'region_generic_quest', effects: { time: 2 } }
     ]
   };
   this.nodes['sl_done_1'] = {
     speaker: '诺克斯女士',
     text: '「不错……你通过了考验。暗影议会会记住你的。」',
-    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { mistress_nox: 15 }, exp: 30, gold: 40, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { affinity: { mistress_nox: 15 }, exp: 30, gold: 40, time: 1 } }]
   };
   this.nodes['sl_pass_1'] = {
     speaker: '',
     text: '你小心翼翼地穿过暗影之地，避免卷入政治斗争。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { time: 2 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { time: 2 } }]
   };
   this.nodes['sl_npc_draven_1'] = {
     speaker: '德雷文领主',
     text: '「又一个自投罗网的猎物……别怕，我还没饿到那地步。说，你来我的城堡做什么？」',
     choices: [
-      { text: '「我对吸血鬼的文化很感兴趣。」（魅力检定）', check: { attr: 'cha', dc: 13 }, success: { affinity: { lord_draven: 15 } }, fail: { hp: -10 }, next: 'career_choice', effects: { time: 2 } },
+      { text: '「我对吸血鬼的文化很感兴趣。」（魅力检定）', check: { attr: 'cha', dc: 13 }, success: { affinity: { lord_draven: 15 } }, fail: { hp: -10 }, next: 'region_generic_quest', effects: { time: 2 } },
       { text: '「我来寻找关于暗影议会的情报。」', next: 'sl_draven_2', effects: { time: 1 } }
     ]
   };
   this.nodes['sl_draven_2'] = {
     speaker: '德雷文领主',
     text: '「暗影议会……哼，那群伪君子。你若帮我一个忙，我可以告诉你一些事。」',
-    choices: [{ text: '「什么忙？」', next: 'career_choice', effects: { affinity: { lord_draven: 10 }, time: 1 } }]
+    choices: [{ text: '「什么忙？」', next: 'region_generic_quest', effects: { affinity: { lord_draven: 10 }, time: 1 } }]
   };
   this.nodes['sl_explore_1'] = {
     speaker: '',
     text: '你在迷雾中探索，发现了一座古老的墓穴。你拾取了一个骷髅护符。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { addItem: ['skull_amulet'], time: 3 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { addItem: ['skull_amulet'], time: 3 } }]
   };
 
   // ========== 草原部落剧情 ==========
@@ -578,20 +545,20 @@ Story.initNodes = function() {
   this.nodes['st_neutral_1'] = {
     speaker: '巴图尔大可汗',
     text: '「中立……在草原上，中立者往往最先倒下。但我尊重你的选择。」',
-    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { khan_batur: 5 }, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { affinity: { khan_batur: 5 }, time: 1 } }]
   };
   this.nodes['st_npc_aigul_1'] = {
     speaker: '艾古尔可敦',
     text: '「外来者！敢和我赛马吗？草原的风，会告诉我你的来意。」',
     choices: [
-      { text: '「比就比！」（敏捷检定）', check: { attr: 'dex', dc: 12 }, success: { affinity: { khatun_aigul: 20 } }, fail: { affinity: { khatun_aigul: 5 } }, next: 'career_choice', effects: { time: 2 } },
-      { text: '「我更想和你聊聊。」（魅力检定）', check: { attr: 'cha', dc: 11 }, success: { affinity: { khatun_aigul: 15 } }, next: 'career_choice', effects: { time: 2 } }
+      { text: '「比就比！」（敏捷检定）', check: { attr: 'dex', dc: 12 }, success: { affinity: { khatun_aigul: 20 } }, fail: { affinity: { khatun_aigul: 5 } }, next: 'region_generic_quest', effects: { time: 2 } },
+      { text: '「我更想和你聊聊。」（魅力检定）', check: { attr: 'cha', dc: 11 }, success: { affinity: { khatun_aigul: 15 } }, next: 'region_generic_quest', effects: { time: 2 } }
     ]
   };
   this.nodes['st_explore_1'] = {
     speaker: '',
     text: '你骑马驰骋在无垠的草原上，风在耳边呼啸。你感受到了自由的力量。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { exp: 15, time: 3 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { exp: 15, time: 3 } }]
   };
 
   // ========== 地区深度剧情支线 ==========
@@ -603,7 +570,7 @@ Story.initNodes = function() {
     choices: [
       { text: '帮助她躲避追捕（敏捷检定）', check: { attr: 'dex', dc: 13 }, success: { affinity: { elena: -5 }, flag: { he_helped_heretic: true }, exp: 30 }, fail: { hp: -20 }, next: 'he_heresy_2', effects: { time: 1 } },
       { text: '将她交给审判庭', next: 'he_heresy_report', effects: { reputation: { holy_empire: 10 }, time: 1 } },
-      { text: '假装没看见', next: 'career_choice', effects: { time: 1 } }
+      { text: '假装没看见', next: 'region_generic_quest', effects: { time: 1 } }
     ]
   };
   this.nodes['he_heresy_2'] = {
@@ -611,20 +578,20 @@ Story.initNodes = function() {
     text: '「谢谢你……我叫塞拉。我发现教廷高层在隐瞒关于源力崩裂的真相。如果你愿意，可以去城外的废弃修道院寻找证据。」',
     choices: [
       { text: '前往废弃修道院', next: 'he_monastery', effects: { time: 2 } },
-      { text: '先送她离开', next: 'career_choice', effects: { affinity: { elena: 5 }, exp: 20, time: 2 } }
+      { text: '先送她离开', next: 'region_generic_quest', effects: { affinity: { elena: 5 }, exp: 20, time: 2 } }
     ]
   };
   this.nodes['he_heresy_report'] = {
     speaker: '审判官',
     text: '「做得好，信徒。教廷会记住你的忠诚。」审判官带走了少女，她回头看了你一眼，眼中满是绝望。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { gold: 30, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { gold: 30, time: 1 } }]
   };
   this.nodes['he_monastery'] = {
     speaker: '',
     text: '废弃的修道院阴森恐怖。你在地下密室发现了一份古老的文献，上面记载着源力崩裂的真相——旧神并非自然陨落，而是被某种力量吞噬。',
     choices: [
-      { text: '带走文献', next: 'career_choice', effects: { addItem: ['ancient_scroll'], exp: 40, flag: { he_truth: true }, time: 2 } },
-      { text: '销毁文献，避免事端', next: 'career_choice', effects: { reputation: { holy_empire: 5 }, time: 1 } }
+      { text: '带走文献', next: 'region_generic_quest', effects: { addItem: ['ancient_scroll'], exp: 40, flag: { he_truth: true }, time: 2 } },
+      { text: '销毁文献，避免事端', next: 'region_generic_quest', effects: { reputation: { holy_empire: 5 }, time: 1 } }
     ]
   };
 
@@ -648,12 +615,12 @@ Story.initNodes = function() {
   this.nodes['ec_root_victory'] = {
     speaker: '',
     text: '你击败了黑暗生物，世界树的根系重新焕发生机。长老对你感激不尽。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { elder_caelum: 25 }, exp: 80, gold: 60, addItem: ['spirit_charm'], time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { affinity: { elder_caelum: 25 }, exp: 80, gold: 60, addItem: ['spirit_charm'], time: 1 } }]
   };
   this.nodes['ec_root_after'] = {
     speaker: '',
     text: '你暂时缓解了世界树的危机，但黑暗的源头仍未根除。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { exp: 40, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { exp: 40, time: 1 } }]
   };
   this.nodes['ec_alt_1'] = {
     speaker: '凯鲁姆长老',
@@ -663,7 +630,7 @@ Story.initNodes = function() {
   this.nodes['ec_moonflower'] = {
     speaker: '',
     text: '你在月光湖畔等待了整夜，终于在黎明前采到了月光花。它散发着柔和的银色光芒。',
-    choices: [{ text: '将月光花交给长老', next: 'career_choice', effects: { affinity: { elder_caelum: 20 }, affinity2: { lyralei: 10 }, exp: 50, time: 1 } }]
+    choices: [{ text: '将月光花交给长老', next: 'region_generic_quest', effects: { affinity: { elder_caelum: 20 }, affinity2: { lyralei: 10 }, exp: 50, time: 1 } }]
   };
 
   // --- 熔岩邦联：熔炉节与火山异变 ---
@@ -671,21 +638,21 @@ Story.initNodes = function() {
     speaker: '格鲁尼尔',
     text: '「熔炉节到了！今年的重头戏是锻造大赛，冠军能获得传说中的「熔炉之心」碎片。小子，要不要参加？」',
     choices: [
-      { text: '参加锻造大赛（智力检定）', check: { attr: 'int', dc: 13 }, success: { exp: 60, gold: 100, addItem: ['rune_fragment'] }, fail: { exp: 20 }, next: 'career_choice', effects: { time: 4 } },
+      { text: '参加锻造大赛（智力检定）', check: { attr: 'int', dc: 13 }, success: { exp: 60, gold: 100, addItem: ['rune_fragment'] }, fail: { exp: 20 }, next: 'region_generic_quest', effects: { time: 4 } },
       { text: '帮格鲁尼尔准备熔炉节', next: 'lc_prepare', effects: { time: 3 } }
     ]
   };
   this.nodes['lc_prepare'] = {
     speaker: '',
     text: '你帮助格鲁尼尔筹备熔炉节，忙前忙后。在这个过程中，你学到了不少锻造知识，也和矮人们打成了一片。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { grunir: 15 }, exp: 30, gold: 40, time: 3 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { affinity: { grunir: 15 }, exp: 30, gold: 40, time: 3 } }]
   };
   this.nodes['lc_volcano_1'] = {
     speaker: '',
     text: '火山活动突然加剧！熔岩祭司预言「熔炉之心」正在苏醒，如果不加以压制，整座城邦都将被火山吞没。',
     choices: [
       { text: '深入火山口压制熔炉之心', next: 'lc_volcano_core', effects: { time: 3 } },
-      { text: '组织居民疏散', next: 'career_choice', effects: { reputation: { lava_confederation: 15 }, exp: 40, time: 2 } }
+      { text: '组织居民疏散', next: 'region_generic_quest', effects: { reputation: { lava_confederation: 15 }, exp: 40, time: 2 } }
     ]
   };
   this.nodes['lc_volcano_core'] = {
@@ -693,13 +660,13 @@ Story.initNodes = function() {
     text: '火山口深处，一个由熔岩构成的元素生物正在狂暴。它就是「熔炉之心」的化身。',
     choices: [
       { text: '战斗！', combat: ['fire_elemental', 'lava_beast'], next: 'lc_volcano_win' },
-      { text: '以锻造之理安抚它（智力检定）', check: { attr: 'int', dc: 16 }, success: { exp: 100, addItem: ['rune_fragment'] }, fail: { hp: -30 }, next: 'career_choice', effects: { time: 2 } }
+      { text: '以锻造之理安抚它（智力检定）', check: { attr: 'int', dc: 16 }, success: { exp: 100, addItem: ['rune_fragment'] }, fail: { hp: -30 }, next: 'region_generic_quest', effects: { time: 2 } }
     ]
   };
   this.nodes['lc_volcano_win'] = {
     speaker: '',
     text: '你击败了熔炉之心的化身，火山恢复了平静。邦联将你视为英雄。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { reputation: { lava_confederation: 25 }, exp: 100, gold: 150, addItem: ['rune_fragment'], time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { reputation: { lava_confederation: 25 }, exp: 100, gold: 150, addItem: ['rune_fragment'], time: 1 } }]
   };
 
   // --- 自由城邦：商人议会选举与阴谋 ---
@@ -708,7 +675,7 @@ Story.initNodes = function() {
     text: '商人议会的选举即将开始，三大派系明争暗斗。现任执政官马洛雇佣你调查对手的黑料。',
     choices: [
       { text: '接受调查任务', next: 'fc_investigate', effects: { gold: 50, time: 2 } },
-      { text: '拒绝，保持中立', next: 'career_choice', effects: { time: 1 } }
+      { text: '拒绝，保持中立', next: 'region_generic_quest', effects: { time: 1 } }
     ]
   };
   this.nodes['fc_investigate'] = {
@@ -722,14 +689,14 @@ Story.initNodes = function() {
   this.nodes['fc_investigate_win'] = {
     speaker: '马洛',
     text: '「干得漂亮！有了这些证据，我连任无忧。这是你的报酬。」',
-    choices: [{ text: '继续', next: 'career_choice', effects: { gold: 100, reputation: { free_cities: 10 }, exp: 50, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { gold: 100, reputation: { free_cities: 10 }, exp: 50, time: 1 } }]
   };
   this.nodes['fc_academy_tournament'] = {
     speaker: '索林大法师',
     text: '「学院举办的源力比武大会即将开始，冠军能获得进入禁书区阅读的资格。你有兴趣吗？」',
     choices: [
-      { text: '参加比武（智力检定）', check: { attr: 'int', dc: 13 }, success: { exp: 70, addItem: ['ancient_scroll'] }, fail: { hp: -15 }, next: 'career_choice', effects: { time: 3 } },
-      { text: '在图书馆自修', next: 'career_choice', effects: { exp: 30, time: 3 } }
+      { text: '参加比武（智力检定）', check: { attr: 'int', dc: 13 }, success: { exp: 70, addItem: ['ancient_scroll'] }, fail: { hp: -15 }, next: 'region_generic_quest', effects: { time: 3 } },
+      { text: '在图书馆自修', next: 'region_generic_quest', effects: { exp: 30, time: 3 } }
     ]
   };
 
@@ -740,7 +707,7 @@ Story.initNodes = function() {
     choices: [
       { text: '帮助德雷文', next: 'sl_vampire_war_2', effects: { affinity: { lord_draven: 20 }, time: 2 } },
       { text: '向暗影议会告密', next: 'sl_betray_draven', effects: { affinity: { mistress_nox: 15 }, affinity2: { lord_draven: -30 }, time: 1 } },
-      { text: '拒绝参与', next: 'career_choice', effects: { time: 1 } }
+      { text: '拒绝参与', next: 'region_generic_quest', effects: { time: 1 } }
     ]
   };
   this.nodes['sl_vampire_war_2'] = {
@@ -753,19 +720,19 @@ Story.initNodes = function() {
   this.nodes['sl_vampire_win'] = {
     speaker: '德雷文领主',
     text: '「干得好。这是暗影议会的密信，你拿去。记住，在暗影之地，没有永远的朋友。」',
-    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { lord_draven: 25 }, addItem: ['royal_letter'], exp: 60, gold: 80, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { affinity: { lord_draven: 25 }, addItem: ['royal_letter'], exp: 60, gold: 80, time: 1 } }]
   };
   this.nodes['sl_betray_draven'] = {
     speaker: '诺克斯女士',
     text: '「明智的选择。德雷文那家伙早就该被肃清了。这是你的奖赏。」',
-    choices: [{ text: '继续', next: 'career_choice', effects: { gold: 120, reputation: { shadow_lands: 10 }, exp: 50, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { gold: 120, reputation: { shadow_lands: 10 }, exp: 50, time: 1 } }]
   };
   this.nodes['sl_necromancer_1'] = {
     speaker: '',
     text: '一位亡灵法师找到你，声称能让你与亡者对话。他需要你帮忙收集「灵魂之尘」。',
     choices: [
       { text: '帮忙收集（探索墓穴）', next: 'sl_grave', effects: { time: 3 } },
-      { text: '拒绝这种邪术', next: 'career_choice', effects: { time: 1 } }
+      { text: '拒绝这种邪术', next: 'region_generic_quest', effects: { time: 1 } }
     ]
   };
   this.nodes['sl_grave'] = {
@@ -778,7 +745,7 @@ Story.initNodes = function() {
   this.nodes['sl_grave_win'] = {
     speaker: '',
     text: '你带着灵魂之尘返回，亡灵法师十分满意。',
-    choices: [{ text: '继续', next: 'career_choice', effects: { exp: 50, addItem: ['skull_shard'], gold: 50, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { exp: 50, addItem: ['skull_shard'], gold: 50, time: 1 } }]
   };
 
   // --- 草原部落：忽里勒台大会与部落纷争 ---
@@ -801,12 +768,12 @@ Story.initNodes = function() {
   this.nodes['st_khuraldai_end'] = {
     speaker: '巴图尔大可汗',
     text: '「你帮我稳住了联盟。草原会记住你的功劳。」',
-    choices: [{ text: '继续', next: 'career_choice', effects: { gold: 80, exp: 50, addItem: ['totem_staff'], time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { gold: 80, exp: 50, addItem: ['totem_staff'], time: 1 } }]
   };
   this.nodes['st_wolf_support'] = {
     speaker: '苍狼首领',
     text: '「你愿意支持我？很好。事成之后，草原的一半归你。」',
-    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { khatun_aigul: -10 }, gold: 100, exp: 40, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { affinity: { khatun_aigul: -10 }, gold: 100, exp: 40, time: 1 } }]
   };
   this.nodes['st_hunt_1'] = {
     speaker: '艾古尔可敦',
@@ -820,13 +787,13 @@ Story.initNodes = function() {
     text: '你和艾古尔追踪到了白狼的踪迹。这头巨狼比普通狼大上三倍，眼神中透着智慧。',
     choices: [
       { text: '射杀白狼', combat: ['wolf_pack'], next: 'st_hunt_win' },
-      { text: '尝试驯服它（感知检定）', check: { attr: 'wis', dc: 15 }, success: { affinity: { khatun_aigul: 20 }, exp: 60, addItem: ['spirit_charm'] }, fail: { hp: -20 }, next: 'career_choice', effects: { time: 1 } }
+      { text: '尝试驯服它（感知检定）', check: { attr: 'wis', dc: 15 }, success: { affinity: { khatun_aigul: 20 }, exp: 60, addItem: ['spirit_charm'] }, fail: { hp: -20 }, next: 'region_generic_quest', effects: { time: 1 } }
     ]
   };
   this.nodes['st_hunt_win'] = {
     speaker: '艾古尔可敦',
     text: '「好箭法！这头白狼的毛皮能做一件上好的斗篷。」',
-    choices: [{ text: '继续', next: 'career_choice', effects: { affinity: { khatun_aigul: 15 }, exp: 50, gold: 60, time: 1 } }]
+    choices: [{ text: '继续', next: 'region_generic_quest', effects: { affinity: { khatun_aigul: 15 }, exp: 50, gold: 60, time: 1 } }]
   };
 
   // ========== 结婚事件 ==========

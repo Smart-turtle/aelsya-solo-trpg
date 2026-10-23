@@ -14,8 +14,8 @@ const Game = {
     flags: {},
     // 地区声望
     reputation: {},
-    // 政治路线
-    careerPath: null,
+    // 政治路线（默认勇者，不再让玩家重复选择）
+    careerPath: 'adventurer',
     // 政治立场
     politicalStance: {},
     // 婚姻
