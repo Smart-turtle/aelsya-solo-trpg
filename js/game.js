@@ -53,6 +53,7 @@ const Game = {
       skills: cls.skills.map(s => s.id),
       inventory: cls.startItems.map(id => ({ id, count: 1 })),
       equipment: { weapon: null, armor: null, accessory: null },
+      craftBonus: { weapon: 0, armor: 0 },
       statusEffects: [],
       skillPoints: 0
     };
@@ -102,6 +103,7 @@ const Game = {
     let atk = Utils.mod(attrs.str) + this.state.player.level;
     const weapon = Items.get(this.state.player.equipment.weapon);
     if (weapon && weapon.atk) atk += weapon.atk;
+    atk += this.state.player.craftBonus?.weapon || 0;
     return atk;
   },
 
@@ -111,6 +113,7 @@ const Game = {
     let def = Utils.mod(attrs.dex);
     const armor = Items.get(this.state.player.equipment.armor);
     if (armor && armor.def) def += armor.def;
+    def += this.state.player.craftBonus?.armor || 0;
     return def;
   },
 
@@ -127,7 +130,9 @@ const Game = {
     }
     if (item.giveGold) {
       p.gold += item.giveGold;
-      p.inventory = p.inventory.filter(i => i.id !== itemId);
+      this.removeItem(itemId, 1);
+    } else if (item.icon) {
+      Utils.floatItem(item.icon);
     }
     return true;
   },
@@ -225,6 +230,7 @@ const Game = {
   gainExp(amount) {
     const p = this.state.player;
     p.exp += amount;
+    Utils.floatExp(amount);
     while (p.exp >= p.expToNext) {
       p.exp -= p.expToNext;
       p.level++;
@@ -233,6 +239,7 @@ const Game = {
       this.recalcStats();
       p.hp = p.maxHp;
       p.mp = p.maxMp;
+      Utils.levelUpBurst();
       Utils.toast(`升级了！当前等级：${p.level}`);
     }
   },
@@ -264,7 +271,10 @@ const Game = {
   },
 
   // 便捷方法
-  addGold(amount) { this.state.player.gold += amount; },
+  addGold(amount) {
+    this.state.player.gold += amount;
+    if (amount !== 0) Utils.floatGold(amount);
+  },
   addExp(amount) { this.gainExp(amount); },
   addReputation(regionId, amount) { this.changeReputation(regionId, amount); },
   applyEffects(effects) { if (Story && Story.applyEffects) Story.applyEffects(effects); },

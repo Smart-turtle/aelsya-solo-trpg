@@ -268,6 +268,14 @@ const UI = {
     if (!node) node = Story.nodes[Game.state.currentStoryNode];
     if (!node) { this.renderWorldMap(); return; }
 
+    // 地区场景背景
+    const region = Game.state.currentRegion;
+    if (region) {
+      const bg = document.createElement('div');
+      bg.className = `story-bg ${region}`;
+      this.uiLayer.appendChild(bg);
+    }
+
     const panel = document.createElement('div');
     panel.id = 'story-panel';
     panel.className = 'fade-in';
@@ -288,7 +296,6 @@ const UI = {
         btn.style.animationDelay = (idx * 0.05) + 's';
         btn.textContent = ch.text;
         btn.onclick = () => {
-          if (ch.onChoose) ch.onChoose();
           Story.choose(ch);
         };
         choicesDiv.appendChild(btn);
@@ -460,6 +467,7 @@ const UI = {
   travelTo(regionId) {
     Scene3D.teleportTo(regionId);
     Game.advanceTime(6);
+    Game.state.currentRegion = regionId;
     document.querySelector('.modal')?.remove();
     this.renderWorldMap();
     // 触发地区剧情

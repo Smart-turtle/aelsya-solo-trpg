@@ -58,7 +58,10 @@ const Story = {
     const p = Game.state.player;
     if (effects.hp) { p.hp = Utils.clamp(p.hp + effects.hp, 0, p.maxHp); }
     if (effects.mp) { p.mp = Utils.clamp(p.mp + effects.mp, 0, p.maxMp); }
-    if (effects.gold) { p.gold += effects.gold; }
+    if (effects.gold) {
+      p.gold = Math.max(0, p.gold + effects.gold);
+      if (effects.gold !== 0) Utils.floatGold(effects.gold);
+    }
     if (effects.exp) { Game.gainExp(effects.exp); }
     if (effects.attrs) {
       Object.entries(effects.attrs).forEach(([k, v]) => { p.attrs[k] += v; });
@@ -105,7 +108,12 @@ const Story = {
       }
     }
     if (cond.hasItem) {
-      if (!cond.hasItem.every(id => Game.hasItem(id))) return false;
+      // 统计每种物品需要的数量（数组中重复出现表示需要多个）
+      const counts = {};
+      cond.hasItem.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+      for (const [id, need] of Object.entries(counts)) {
+        if (!Game.hasItem(id, need)) return false;
+      }
     }
     if (cond.flag) {
       for (const [k, v] of Object.entries(cond.flag)) {
@@ -1063,7 +1071,8 @@ Story.initNodes = function() {
       const p = Game.state.player;
       p.hp = Math.min(p.maxHp, p.hp + Math.floor(p.maxHp * 0.5));
       p.mp = Math.min(p.maxMp, p.mp + Math.floor(p.maxMp * 0.5));
-      this._pendingText = '你在旅店美美地睡了一觉，恢复了不少精力。';
+      Utils.sleepZzz();
+      this._pendingText = '💤 你在旅店美美地睡了一觉，恢复了不少精力。';
     },
     text: '',
     choices: [{ text: '返回', next: null, dynamicHub: true }]
@@ -1074,7 +1083,8 @@ Story.initNodes = function() {
       const p = Game.state.player;
       p.hp = p.maxHp;
       p.mp = p.maxMp;
-      this._pendingText = '豪华套房的服务无可挑剔，你完全恢复了状态，甚至感到精神焕发。';
+      Utils.sleepZzz();
+      this._pendingText = '💤 豪华套房的服务无可挑剔，你完全恢复了状态，甚至感到精神焕发。';
       Game.gainExp(10);
     },
     text: '',
@@ -1096,11 +1106,13 @@ Story.initNodes = function() {
     speaker: '',
     onEnter: () => {
       Game.removeItem('weapon_stone');
-      const w = Game.state.player.equipment.weapon;
+      Utils.forgeSparks(10);
+      const p = Game.state.player;
+      p.craftBonus = p.craftBonus || { weapon: 0, armor: 0 };
+      p.craftBonus.weapon += 2;
+      const w = p.equipment.weapon;
       if (w) {
-        const item = Items.get(w);
-        item.atk = (item.atk || 0) + 2;
-        this._pendingText = `你的${item.name}被强化了！攻击力 +2。`;
+        this._pendingText = `🔥 锻造炉中火星四溅，你的${Items.get(w).name}被强化了！攻击力 +2。`;
       } else {
         Game.addItem('iron_sword');
         this._pendingText = '你没有装备武器，锻造师为你打造了一把铁剑。';
@@ -1114,11 +1126,13 @@ Story.initNodes = function() {
     speaker: '',
     onEnter: () => {
       Game.removeItem('armor_stone');
-      const a = Game.state.player.equipment.armor;
+      Utils.forgeSparks(10);
+      const p = Game.state.player;
+      p.craftBonus = p.craftBonus || { weapon: 0, armor: 0 };
+      p.craftBonus.armor += 2;
+      const a = p.equipment.armor;
       if (a) {
-        const item = Items.get(a);
-        item.def = (item.def || 0) + 2;
-        this._pendingText = `你的${item.name}被强化了！防御力 +2。`;
+        this._pendingText = `🔥 锤声铮铮，你的${Items.get(a).name}被强化了！防御力 +2。`;
       } else {
         Game.addItem('leather_armor');
         this._pendingText = '你没有装备护甲，锻造师为你打造了一件皮甲。';
@@ -1132,8 +1146,9 @@ Story.initNodes = function() {
     speaker: '',
     onEnter: () => {
       Game.removeItem('mysterious_herb', 2);
+      Utils.forgeSparks(6);
       Game.addItem('greater_health_potion');
-      this._pendingText = '你用神秘草药炼制成了一瓶强效生命药水。';
+      this._pendingText = '🫧 草药在坩埚中沸腾，你炼制成了一瓶强效生命药水。';
       Game.gainExp(10);
     },
     text: '',
@@ -1152,14 +1167,15 @@ Story.initNodes = function() {
     ]
   };
   const gambleResult = (bet, guessBig) => {
+    Utils.gambleDice();
     const roll = Utils.d20();
     const isBig = roll >= 11;
     const win = (guessBig && isBig) || (!guessBig && !isBig);
     if (win) {
       Game.addGold(bet * 2);
-      return `骰子开出了 ${roll}（${isBig ? '大' : '小'}），你猜对了！赢得 ${bet * 2} 金币！`;
+      return `🎲 骰子开出了 ${roll}（${isBig ? '大' : '小'}），你猜对了！赢得 ${bet * 2} 金币！`;
     }
-    return `骰子开出了 ${roll}（${isBig ? '大' : '小'}），你猜错了，损失了 ${bet} 金币。`;
+    return `🎲 骰子开出了 ${roll}（${isBig ? '大' : '小'}），你猜错了，损失了 ${bet} 金币。`;
   };
   this.nodes['gamble_big'] = { speaker: '', onEnter: () => { this._pendingText = gambleResult(10, true); }, text: '', choices: [{ text: '再来一局', next: 'proc_gamble' }, { text: '离开', next: null, dynamicHub: true }] };
   this.nodes['gamble_small'] = { speaker: '', onEnter: () => { this._pendingText = gambleResult(10, false); }, text: '', choices: [{ text: '再来一局', next: 'proc_gamble' }, { text: '离开', next: null, dynamicHub: true }] };
@@ -1219,11 +1235,11 @@ Story.initNodes = function() {
     speaker: '商人',
     text: '欢迎光临！这里有各种商品可供选购。',
     choices: [
-      { text: '购买治疗药水（50金币）', next: 'shop', effects: { gold: -50, addItem: ['health_potion'] } },
-      { text: '购买法力药水（60金币）', next: 'shop', effects: { gold: -60, addItem: ['mana_potion'] } },
-      { text: '购买武器强化石（100金币）', next: 'shop', effects: { gold: -100, addItem: ['weapon_stone'] } },
-      { text: '购买护甲强化石（100金币）', next: 'shop', effects: { gold: -100, addItem: ['armor_stone'] } },
-      { text: '购买神秘卷轴（150金币）', next: 'shop', effects: { gold: -150, addItem: ['ancient_scroll'] } },
+      { text: '购买治疗药水（50金币）', next: 'shop', effects: { gold: -50, addItem: ['health_potion'] }, condition: { gold: 50 } },
+      { text: '购买法力药水（60金币）', next: 'shop', effects: { gold: -60, addItem: ['mana_potion'] }, condition: { gold: 60 } },
+      { text: '购买武器强化石（100金币）', next: 'shop', effects: { gold: -100, addItem: ['weapon_stone'] }, condition: { gold: 100 } },
+      { text: '购买护甲强化石（100金币）', next: 'shop', effects: { gold: -100, addItem: ['armor_stone'] }, condition: { gold: 100 } },
+      { text: '购买神秘卷轴（150金币）', next: 'shop', effects: { gold: -150, addItem: ['ancient_scroll'] }, condition: { gold: 150 } },
       { text: '离开商店', next: null, dynamicHub: true }
     ]
   };

@@ -56,5 +56,71 @@ const Utils = {
     if (hour >= 12 && hour < 17) return '午后';
     if (hour >= 17 && hour < 21) return '黄昏';
     return '夜晚';
+  },
+
+  // ===== 行为动画辅助 =====
+  // 飘字（金币/经验/伤害）
+  floatText(text, className = 'gold-float', duration = 1800) {
+    const el = document.createElement('div');
+    el.className = className;
+    el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), duration);
+  },
+  // 金币飘字
+  floatGold(amount) {
+    this.floatText(`${amount > 0 ? '+' : ''}${amount} 金币`, 'gold-float', 1800);
+  },
+  // 经验飘字
+  floatExp(amount) {
+    this.floatText(`+${amount} 经验`, 'exp-float', 1800);
+  },
+  // 物品获得动画
+  floatItem(icon) {
+    const el = document.createElement('div');
+    el.className = 'item-gain';
+    el.textContent = icon;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1200);
+  },
+  // 升级光环
+  levelUpBurst() {
+    const el = document.createElement('div');
+    el.className = 'level-up-burst';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1500);
+  },
+  // 锻造火花
+  forgeSparks(count = 8) {
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = 'forge-spark';
+      el.style.setProperty('--sx', (Math.random() * 120 - 60) + 'px');
+      el.style.setProperty('--sy', (Math.random() * -80 - 20) + 'px');
+      el.style.animationDelay = (i * 0.05) + 's';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 900);
+    }
+  },
+  // 旅店睡梦
+  sleepZzz() {
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => {
+        const el = document.createElement('div');
+        el.className = 'sleep-zzz';
+        el.textContent = 'Z';
+        el.style.animationDelay = '0s';
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 2000);
+      }, i * 400);
+    }
+  },
+  // 赌场骰子
+  gambleDice() {
+    const el = document.createElement('div');
+    el.className = 'gamble-dice';
+    el.textContent = '🎲';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
   }
 };

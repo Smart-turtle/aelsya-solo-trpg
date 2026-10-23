@@ -53,6 +53,7 @@ const Combat = {
     if (!target) return;
     const atk = Game.getAttack();
     const roll = Utils.d20();
+    this._animatePlayer('attacking');
     if (roll === 1) {
       this.log.push(`你攻击失误！`);
     } else {
@@ -60,8 +61,10 @@ const Combat = {
       const dmg = Math.max(1, hit - target.def + Utils.randInt(0, 4));
       target.hp -= dmg;
       this.log.push(`你对${target.name}造成了 ${dmg} 点伤害！`);
+      this._animateEnemy(target, 'hit', dmg);
       if (target.hp <= 0) {
         target.hp = 0;
+        this._animateEnemy(target, 'dead');
         this.log.push(`${target.name}被击败了！`);
       }
     }
@@ -82,23 +85,28 @@ const Combat = {
     p.mp -= skill.mp;
     const target = this.enemies.find(e => e.hp > 0);
     if (!target) return;
+    this._animatePlayer('attacking');
 
     if (skill.dmg) {
       const baseDmg = Math.floor(Game.getAttack() * skill.dmg);
       const dmg = Math.max(1, baseDmg - target.def + Utils.randInt(0, 5));
       target.hp -= dmg;
       this.log.push(`你使用【${skill.name}】，对${target.name}造成 ${dmg} 点伤害！`);
+      this._animateEnemy(target, 'hit', dmg);
       if (skill.heal) {
         p.hp = Math.min(p.maxHp, p.hp + skill.heal);
         this.log.push(`你恢复了 ${skill.heal} 点生命。`);
+        this._floatDmg(p.name, '+' + skill.heal, 'heal');
       }
       if (target.hp <= 0) {
         target.hp = 0;
+        this._animateEnemy(target, 'dead');
         this.log.push(`${target.name}被击败了！`);
       }
     } else if (skill.heal) {
       p.hp = Math.min(p.maxHp, p.hp + skill.heal);
       this.log.push(`你使用【${skill.name}】，恢复了 ${skill.heal} 点生命。`);
+      this._floatDmg(p.name, '+' + skill.heal, 'heal');
     } else if (skill.buff) {
       p.statusEffects.push({ type: 'buff', stat: skill.buff, duration: 3 });
       this.log.push(`你使用【${skill.name}】，获得了增益！`);
@@ -106,6 +114,7 @@ const Combat = {
       target.statusEffects = target.statusEffects || [];
       target.statusEffects.push({ type: 'stun', duration: 1 });
       this.log.push(`你使用【${skill.name}】，${target.name}被控制了！`);
+      this._animateEnemy(target, 'hit');
     }
     if (skill.hpCost) {
       p.hp = Math.max(1, p.hp - skill.hpCost);
@@ -164,6 +173,7 @@ const Combat = {
           this.log.push(`${e.name}被控制，无法行动。`);
           return;
         }
+        this._animateEnemy(e, 'attacking');
         // 简单 AI：血量低时攻击，随机选择
         const p = Game.state.player;
         const defending = p.statusEffects.find(s => s.type === 'defending');
@@ -175,6 +185,7 @@ const Combat = {
           const dmg = Math.max(1, e.atk + Utils.randInt(0, 3) - def);
           p.hp -= dmg;
           this.log.push(`${e.name}对你造成了 ${dmg} 点伤害！`);
+          this._animatePlayer('hit', dmg);
           if (p.hp <= 0) {
             p.hp = 0;
           }
@@ -213,9 +224,62 @@ const Combat = {
     }
   },
 
+  // ===== 战斗动画辅助 =====
+  _getCombatEl(name) {
+    const panel = document.getElementById('combat-panel');
+    if (!panel) return null;
+    const combatants = panel.querySelectorAll('.combatant');
+    for (const c of combatants) {
+      const h3 = c.querySelector('h3');
+      if (h3 && h3.textContent === name) return c;
+    }
+    return null;
+  },
+  _animatePlayer(type, dmg) {
+    const p = Game.state.player;
+    const el = this._getCombatEl(p.name);
+    if (!el) return;
+    el.classList.remove('attacking', 'hit');
+    void el.offsetWidth; // 重启动画
+    el.classList.add(type);
+    if (type === 'hit' && dmg) this._floatDmg(p.name, dmg);
+    if (type === 'hit') {
+      const panel = document.getElementById('combat-panel');
+      if (panel) {
+        panel.classList.remove('shake');
+        void panel.offsetWidth;
+        panel.classList.add('shake');
+      }
+    }
+    setTimeout(() => el.classList.remove(type), 500);
+  },
+  _animateEnemy(enemy, type, dmg) {
+    const el = this._getCombatEl(enemy.name);
+    if (!el) return;
+    el.classList.remove('attacking', 'hit', 'dead');
+    void el.offsetWidth;
+    el.classList.add(type);
+    if (type === 'hit' && dmg) this._floatDmg(enemy.name, dmg);
+    if (type !== 'dead') setTimeout(() => el.classList.remove(type), 500);
+  },
+  _floatDmg(name, dmg, cls = '') {
+    const el = this._getCombatEl(name);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const float = document.createElement('div');
+    float.className = 'dmg-float ' + cls;
+    float.textContent = dmg;
+    float.style.left = (rect.left + rect.width / 2 - 15) + 'px';
+    float.style.top = (rect.top + 20) + 'px';
+    float.style.position = 'fixed';
+    document.body.appendChild(float);
+    setTimeout(() => float.remove(), 1000);
+  },
+
   // 结束战斗
   end(victory, defeated = false) {
     this.active = false;
+    const p = Game.state.player;
     if (victory) {
       let totalExp = 0, totalGold = 0;
       this.enemies.forEach(e => {
@@ -223,7 +287,7 @@ const Combat = {
         totalGold += e.gold;
       });
       Game.gainExp(totalExp);
-      Game.state.player.gold += totalGold;
+      Game.addGold(totalGold);
       Game.state.log.push(`获得 ${totalExp} 经验，${totalGold} 金币`);
       Utils.toast(`获得 ${totalExp} 经验，${totalGold} 金币`);
       // 随机掉落
@@ -231,6 +295,12 @@ const Combat = {
         const drops = ['health_potion', 'mana_potion', 'food'];
         Game.addItem(Utils.pick(drops));
       }
+    } else if (defeated) {
+      // 战败惩罚：恢复1点生命，损失部分金币和经验
+      const lostGold = Math.floor(p.gold * 0.3);
+      p.gold = Math.max(0, p.gold - lostGold);
+      p.hp = 1;
+      Utils.toast(`你被击败了……损失了 ${lostGold} 金币，勉强保住性命。`);
     }
     Game.state.phase = 'story';
     UI.renderStory();
