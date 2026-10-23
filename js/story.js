@@ -137,10 +137,57 @@ const Story = {
     return true;
   },
 
+  // 生成条件不满足的原因描述（返回 null 表示条件满足）
+  getConditionReason(cond) {
+    if (!cond) return null;
+    const p = Game.state.player;
+    const attrs = Game.getPlayerAttrs();
+    const reasons = [];
+    const attrNames = { str: '力量', dex: '敏捷', int: '智力', wis: '感知', cha: '魅力', con: '体质' };
+    if (cond.attrMin) {
+      for (const [k, v] of Object.entries(cond.attrMin)) {
+        if ((attrs[k] || 0) < v) reasons.push(`${attrNames[k] || k} 需要 ${v}（当前 ${attrs[k] || 0}）`);
+      }
+    }
+    if (cond.hasItem) {
+      const counts = {};
+      cond.hasItem.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+      for (const [id, need] of Object.entries(counts)) {
+        const item = Items.get(id);
+        const owned = p.inventory.find(i => i.id === id)?.count || 0;
+        if (owned < need) {
+          reasons.push(`需要 ${item?.name || id}×${need}（当前 ${owned}）`);
+        }
+      }
+    }
+    if (cond.flag) {
+      for (const [k, v] of Object.entries(cond.flag)) {
+        if (Game.getFlag(k) !== v) reasons.push(`需要完成前置条件：${k}`);
+      }
+    }
+    if (cond.affinityMin) {
+      for (const [npc, v] of Object.entries(cond.affinityMin)) {
+        const aff = Game.getAffinity(npc);
+        if (aff < v) reasons.push(`与 ${NPCs[npc]?.name || npc} 好感度需要 ${v}（当前 ${aff}）`);
+      }
+    }
+    if (cond.careerPath) {
+      if (Game.state.careerPath !== cond.careerPath) reasons.push(`需要 ${World.careerPaths[cond.careerPath]?.name || cond.careerPath} 路线`);
+    }
+    if (cond.region) {
+      if (Game.state.currentRegion !== cond.region) reasons.push(`需要在 ${World.regions[cond.region]?.name || cond.region}`);
+    }
+    if (cond.gold !== undefined) {
+      if (p.gold < cond.gold) reasons.push(`需要 ${cond.gold} 金币（当前 ${p.gold}）`);
+    }
+    return reasons.length ? reasons.join('；') : null;
+  },
+
   // 选择选项
   choose(choice) {
-    if (choice.condition && !this.checkCondition(choice.condition)) {
-      Utils.toast('条件不满足');
+    const reason = this.getConditionReason(choice.condition);
+    if (reason) {
+      Utils.toast(`无法执行：${reason}`);
       return;
     }
     // onChoice 回调

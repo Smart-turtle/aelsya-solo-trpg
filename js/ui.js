@@ -290,11 +290,15 @@ const UI = {
       const choicesDiv = document.createElement('div');
       choicesDiv.className = 'choices';
       displayChoices.forEach((ch, idx) => {
-        if (ch.condition && !Story.checkCondition(ch.condition)) return;
+        const reason = Story.getConditionReason(ch.condition);
         const btn = document.createElement('button');
-        btn.className = 'btn choice-btn slide-up';
+        btn.className = 'btn choice-btn slide-up' + (reason ? ' choice-disabled' : '');
         btn.style.animationDelay = (idx * 0.05) + 's';
-        btn.textContent = ch.text;
+        if (reason) {
+          btn.innerHTML = `${ch.text} <span class="choice-reason">（${reason}）</span>`;
+        } else {
+          btn.textContent = ch.text;
+        }
         btn.onclick = () => {
           Story.choose(ch);
         };
